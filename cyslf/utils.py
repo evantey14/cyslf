@@ -2,7 +2,7 @@ def get_distance(p1, p2):
     return ((p2[0] - p1[0]) ** 2 + (p2[1] - p1[1]) ** 2) ** 0.5
 
 
-practice_fields = [
+practice_fields = [  # latitude longitude
     (42.38980588369338, -71.13301159861518),  # danehy
     (42.37292538868882, -71.08361099742957),  # gsm
     (42.376852476244125, -71.12084010564928),  # common

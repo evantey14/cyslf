@@ -1,5 +1,7 @@
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import List, Set, Tuple
+
+import pandas as pd
 
 
 @dataclass(frozen=True)
@@ -34,19 +36,23 @@ class Team:
     def remove_player(self, player: Player) -> None:
         self.players.remove(player)
 
-    def get_skill(self) -> int:
-        return sum([player.skill for player in self.players])
+    def get_skill(self) -> float:
+        if len(self.players) == 0:
+            return 0
+        return sum([player.skill for player in self.players]) / len(self.players)
 
     def get_grade(self) -> float:
-        return sum([player.grade for player in self.players])
+        if len(self.players) == 0:
+            return 0
+        return sum([player.grade for player in self.players]) / len(self.players)
 
     def __repr__(self):
         return (
-            f"Team {self.name} {self.practice_day} ("
+            f"Team {self.name:11} "
+            f"({self.practice_day} "
             f"size={len(self.players)}, "
-            f"skill={self.get_skill()}, "
-            f"grade={self.get_grade()/len(self.players) if len(self.players) > 0 else 0:.2f}): "
-            f"{self.players}"
+            f"skill={self.get_skill():.2f}, "
+            f"grade={self.get_grade():.2f})"
         )
 
 
@@ -67,6 +73,13 @@ class League:
                 team_to.remove_player(player)
             if team_from is not None:
                 team_from.add_player(player)
+
+    def to_csv(self, outfile: str) -> None:
+        players = []
+        for team in self.teams:
+            for player in team.players:
+                players.append(asdict(player) | {"team": team.name})
+        pd.DataFrame.from_records(players).to_csv(outfile)
 
     def __repr__(self):
         s = f"{len(self.teams)} Teams:\n"

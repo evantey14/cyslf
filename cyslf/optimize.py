@@ -16,6 +16,7 @@ def find_best_move(player: Player, league: League):  # -> move
         proposed_move = (player, old_team, team)
         league.apply_moves([proposed_move])
         score = score_league(league)
+        # print(f"{score:.3f}", proposed_move)
         breaks_constraint = breaks_schedule_constraint(league)
         league.undo_moves([proposed_move])
         if not breaks_constraint and score > best_score:
