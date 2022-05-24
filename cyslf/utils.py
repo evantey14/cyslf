@@ -1,5 +1,7 @@
-def get_distance(p1, p2):
-    return ((p2[0] - p1[0]) ** 2 + (p2[1] - p1[1]) ** 2) ** 0.5
+def get_distance(obj1, obj2):
+    return (
+        (obj1.latitude - obj2.latitude) ** 2 + (obj1.longitude - obj2.longitude) ** 2
+    ) ** 0.5
 
 
 practice_fields = [  # latitude longitude
@@ -8,10 +10,5 @@ practice_fields = [  # latitude longitude
     (42.376852476244125, -71.12084010564928),  # common
 ]
 
-# Get a global distance scale
-max_distance = 0
-for location_i in practice_fields:
-    for location_j in practice_fields:
-        distance = get_distance(location_i, location_j)
-        if distance > max_distance:
-            max_distance = distance
+# Maximum distance between fields. Natural length scale for scoring
+max_distance = 0.052205081257465445

@@ -1,5 +1,5 @@
-from dataclasses import asdict, dataclass
-from typing import List, Set, Tuple
+from dataclasses import asdict, dataclass, field
+from typing import List, Optional, Set
 
 import pandas as pd
 
@@ -11,24 +11,25 @@ class Player:
     last_name: str
     grade: int
     skill: int
-    unavailable_days: List[str]
-    location: Tuple[float]
-    # TODO: should these fields be fixed? or extendable?
+    unavailable_days: str
+    latitude: float
+    longitude: float
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f"<{self.first_name} {self.last_name} "
             f"s={self.skill} g={self.grade} {self.unavailable_days}>"
         )
 
 
+@dataclass
 class Team:
-    def __init__(self, name: str, practice_day: str, location) -> None:
-        self.name = name
-        self.practice_day = practice_day
-        self.players: Set[Player] = set()
-        self.location = location
-        # TODO: practice time?
+    name: str
+    practice_day: str
+    latitude: float
+    longitude: float
+    players: Set[Player] = field(default_factory=set)
+    # TODO: practice time
 
     def add_player(self, player: Player) -> None:
         self.players.add(player)
@@ -56,23 +57,32 @@ class Team:
         )
 
 
+@dataclass(frozen=True)
+class Move:
+    """A class representing moving a player from one team to another."""
+
+    player: Player
+    team_from: Optional[Team] = None
+    team_to: Optional[Team] = None
+
+
 class League:
-    def __init__(self, teams: List[Team]):
+    def __init__(self, teams: List[Team]) -> None:
         self.teams = teams
 
-    def apply_moves(self, proposed_moves):
-        for player, team_from, team_to in proposed_moves:
-            if team_from is not None:
-                team_from.remove_player(player)
-            if team_to is not None:
-                team_to.add_player(player)
+    def apply_moves(self, moves: List[Move]) -> None:
+        for move in moves:
+            if move.team_from is not None:
+                move.team_from.remove_player(move.player)
+            if move.team_to is not None:
+                move.team_to.add_player(move.player)
 
-    def undo_moves(self, proposed_moves):
-        for player, team_from, team_to in proposed_moves:
-            if team_to is not None:
-                team_to.remove_player(player)
-            if team_from is not None:
-                team_from.add_player(player)
+    def undo_moves(self, moves: List[Move]) -> None:
+        for move in moves:
+            if move.team_to is not None:
+                move.team_to.remove_player(move.player)
+            if move.team_from is not None:
+                move.team_from.add_player(move.player)
 
     def to_csv(self, outfile: str) -> None:
         players = []

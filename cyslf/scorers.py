@@ -27,7 +27,7 @@ def score_convenience(league: League):
     score = 1
     for team in league.teams:
         for player in team.players:
-            distance = get_distance(player.location, team.location)
+            distance = get_distance(player, team)
             if np.isnan(distance):
                 continue
             score -= (

@@ -1,9 +1,11 @@
+from typing import Tuple
+
 from .constraints import breaks_schedule_constraint
-from .models import League, Player
+from .models import League, Move, Player
 from .scorers import score_league
 
 
-def find_best_move(player: Player, league: League):  # -> move
+def find_best_move(player: Player, league: League) -> Tuple[Move, float]:
     best_move = None
     best_score = -1
 
@@ -13,7 +15,7 @@ def find_best_move(player: Player, league: League):  # -> move
             old_team = team
 
     for team in league.teams:
-        proposed_move = (player, old_team, team)
+        proposed_move = Move(player=player, team_from=old_team, team_to=team)
         league.apply_moves([proposed_move])
         score = score_league(league)
         # print(f"{score:.3f}", proposed_move)
@@ -31,7 +33,7 @@ def optimize_player_assignment(player: Player, league: League):
     # TODO: probably work in a "depth" argument
     best_move, best_score = find_best_move(player, league)
     moves = [best_move]
-    for player in best_move[2].players.copy():
+    for player in best_move.team_to.players.copy():
         league.apply_moves([best_move])
         next_best_move, next_best_score = find_best_move(player, league)
         league.undo_moves([best_move])
