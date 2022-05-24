@@ -84,12 +84,40 @@ class League:
             if move.team_from is not None:
                 move.team_from.add_player(move.player)
 
-    def to_csv(self, outfile: str) -> None:
+    @classmethod
+    def from_csvs(cls, player_csv: str, team_csv: str) -> "League":
+        player_info = pd.read_csv(player_csv)
+        team_info = pd.read_csv(team_csv)
+        teams = {}
+        for i, row in team_info.iterrows():
+            teams[row["name"]] = Team(**row.to_dict())
+
+        for i, row in player_info.iterrows():
+            player_dict = row.to_dict()
+            team = player_dict.pop("team", None)
+            if team is not None:
+                teams[team].add_player(Player(**player_dict))
+            else:
+                print(Player(**player_dict))
+
+        return cls(list(teams.values()))
+
+    def to_csvs(self, player_csv: str, team_csv: str) -> None:
+        teams = []
         players = []
         for team in self.teams:
+            team_dict = asdict(team)
+            del team_dict["players"]
+            # TODO: print stats? notably sheets won't be linked though...
+            teams.append(team_dict)
             for player in team.players:
                 players.append(asdict(player) | {"team": team.name})
-        pd.DataFrame.from_records(players).to_csv(outfile)
+
+        print(f"Saving player information to {player_csv}")
+        pd.DataFrame.from_records(players).to_csv(player_csv, index=False)
+
+        print(f"Saving team information to {team_csv}")
+        pd.DataFrame.from_records(teams).to_csv(team_csv, index=False)
 
     def __repr__(self):
         s = f"{len(self.teams)} Teams:\n"
