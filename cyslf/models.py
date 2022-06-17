@@ -100,8 +100,14 @@ class League:
             else:
                 self.available_players.add(move.player)
 
+    def reset_league(self) -> None:
+        for team in self.teams:
+            for player in list(team.players):
+                self.apply_moves([Move(player=player, team_from=team, team_to=None)])
+
     @classmethod
     def from_csvs(cls, player_csv: str, team_csv: str) -> "League":
+        # TODO: check constraints here
         player_info = pd.read_csv(player_csv)
         team_info = pd.read_csv(team_csv)
         teams = {}

@@ -1,43 +1,39 @@
-from typing import Tuple
+import itertools as it
+from typing import List
 
 from .constraints import breaks_schedule_constraint
 from .models import League, Move, Player
 from .scorers import score_league
 
 
-def find_best_move(player: Player, league: League) -> Tuple[Move, float]:
-    best_move = None
+def find_best_moves(player: Player, league: League, depth: int = 1) -> List[Move]:
+    queue = []
+    best_moves = []
     best_score = -1
-
     old_team = None
     for team in league.teams:
-        if player in team.players:
-            old_team = team
-
+        if team == old_team:
+            continue
     for team in league.teams:
-        proposed_move = Move(player=player, team_from=old_team, team_to=team)
-        league.apply_moves([proposed_move])
+        queue.append([Move(player=player, team_from=old_team, team_to=team)])
+
+    while len(queue) > 0:
+        proposed_moves = queue.pop()
+        league.apply_moves(proposed_moves)
         score = score_league(league)
-        # print(f"{score:.3f}", proposed_move)
         breaks_constraint = breaks_schedule_constraint(league)
-        league.undo_moves([proposed_move])
+        league.undo_moves(proposed_moves)
         if not breaks_constraint and score > best_score:
             best_score = score
-            best_move = proposed_move
-    return best_move, best_score
+            best_moves = proposed_moves
 
-
-def optimize_player_assignment(player: Player, league: League):
-    # N.B. this is pretty inefficient. If we need this to be faster,
-    # we could change how the score/checkers work.
-    # TODO: probably work in a "depth" argument
-    best_move, best_score = find_best_move(player, league)
-    moves = [best_move]
-    for player in best_move.team_to.players.copy():
-        league.apply_moves([best_move])
-        next_best_move, next_best_score = find_best_move(player, league)
-        league.undo_moves([best_move])
-        if next_best_score > best_score:
-            moves = [best_move, next_best_move]
-            best_score = next_best_score
-    league.apply_moves(moves)
+        if len(proposed_moves) < depth:
+            last_team = proposed_moves[-1].team_to
+            for p, t in it.product(last_team.players, league.teams):
+                moved_players = [move.player for move in proposed_moves]
+                if p in moved_players or t.name == last_team.name:
+                    continue
+                queue.append(
+                    [*proposed_moves, Move(player=p, team_from=last_team, team_to=t)]
+                )
+    return best_moves
