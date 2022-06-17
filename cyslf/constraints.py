@@ -1,10 +1,12 @@
-from .models import League
+from typing import List
+
+from .models import Move
 
 
-def breaks_schedule_constraint(league: League):
-    """True if schedule constraint is broken. False if it's fine."""
-    for team in league.teams:
-        for player in team.players:
-            if team.practice_day in player.unavailable_days:
-                return True
+def breaks_constraints(moves: List[Move]) -> bool:
+    for move in moves:
+        if move.team_to.practice_day in move.player.unavailable_days:
+            return True
+        if move.player.frozen:
+            return True
     return False

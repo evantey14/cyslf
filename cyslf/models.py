@@ -14,6 +14,7 @@ class Player:
     unavailable_days: str
     latitude: float
     longitude: float
+    frozen: bool
 
     def __repr__(self) -> str:
         return (

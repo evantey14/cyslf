@@ -1,7 +1,7 @@
 import itertools as it
 from typing import List
 
-from .constraints import breaks_schedule_constraint
+from .constraints import breaks_constraints
 from .models import League, Move, Player
 from .scorers import score_league
 
@@ -19,11 +19,12 @@ def find_best_moves(player: Player, league: League, depth: int = 1) -> List[Move
 
     while len(queue) > 0:
         proposed_moves = queue.pop()
+        if breaks_constraints(proposed_moves):
+            continue
         league.apply_moves(proposed_moves)
         score = score_league(league)
-        breaks_constraint = breaks_schedule_constraint(league)
         league.undo_moves(proposed_moves)
-        if not breaks_constraint and score > best_score:
+        if score > best_score:
             best_score = score
             best_moves = proposed_moves
 
