@@ -65,42 +65,59 @@ class Move:
     team_from: Optional[Team] = None
     team_to: Optional[Team] = None
 
+    def __repr__(self):
+        return (
+            f"Move {self.player}\n"
+            f"\t from: {self.team_from}\n"
+            f"\t   to: {self.team_to}\n"
+        )
 
+
+@dataclass
 class League:
-    def __init__(self, teams: List[Team]) -> None:
-        self.teams = teams
+    teams: List[Team]
+    available_players: Set[Player]  # TODO: consider a PQ
 
     def apply_moves(self, moves: List[Move]) -> None:
         for move in moves:
             if move.team_from is not None:
                 move.team_from.remove_player(move.player)
+            else:
+                self.available_players.remove(move.player)
             if move.team_to is not None:
                 move.team_to.add_player(move.player)
+            else:
+                self.available_players.add(move.player)
 
     def undo_moves(self, moves: List[Move]) -> None:
         for move in moves:
             if move.team_to is not None:
                 move.team_to.remove_player(move.player)
+            else:
+                self.available_players.remove(move.player)
             if move.team_from is not None:
                 move.team_from.add_player(move.player)
+            else:
+                self.available_players.add(move.player)
 
     @classmethod
     def from_csvs(cls, player_csv: str, team_csv: str) -> "League":
         player_info = pd.read_csv(player_csv)
         team_info = pd.read_csv(team_csv)
         teams = {}
+        available_players = set()
         for i, row in team_info.iterrows():
             teams[row["name"]] = Team(**row.to_dict())
 
         for i, row in player_info.iterrows():
             player_dict = row.to_dict()
             team = player_dict.pop("team", None)
-            if team is not None:
+            if not pd.isnull(team):
                 teams[team].add_player(Player(**player_dict))
             else:
-                print(Player(**player_dict))
+                available_players.add(Player(**player_dict))
 
-        return cls(list(teams.values()))
+        return cls(teams=list(teams.values()), available_players=available_players)
 
     def to_csvs(self, player_csv: str, team_csv: str) -> None:
         teams = []
@@ -108,10 +125,12 @@ class League:
         for team in self.teams:
             team_dict = asdict(team)
             del team_dict["players"]
-            # TODO: print stats? notably sheets won't be linked though...
             teams.append(team_dict)
             for player in team.players:
                 players.append(asdict(player) | {"team": team.name})
+
+        for player in self.available_players:
+            players.append(asdict(player))
 
         print(f"Saving player information to {player_csv}")
         pd.DataFrame.from_records(players).to_csv(player_csv, index=False)
@@ -123,4 +142,5 @@ class League:
         s = f"{len(self.teams)} Teams:\n"
         for team in self.teams:
             s += f"{team}\n"
+        s += f"{len(self.available_players)} players available for assignment"
         return s
