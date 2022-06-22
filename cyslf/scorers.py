@@ -13,7 +13,7 @@ from .utils import get_distance, max_distance
 
 
 # TOTAL SCORER
-def score_league(league: League):
+def score_league(league: League) -> float:
     return (
         0.25 * score_skill(league)
         + 0.25 * score_grade(league)
@@ -23,7 +23,7 @@ def score_league(league: League):
 
 
 # CONVENIENCE SCORERS
-def score_convenience(league: League):
+def score_convenience(league: League) -> float:
     score = 1
     for team in league.teams:
         for player in team.players:
@@ -38,40 +38,31 @@ def score_convenience(league: League):
 
 # PARITY SCORERS
 
-# TODO: the sigmas shouldn't depend on the current league config?
-# Right now it depends on the full league at the time of calculation
+# TODO: "ideal" numbers really only need to be calculated once. This could be fixed if these were
+# all classes.
+# TODO: make a scorer to ensure even spread of top tier players
 
 
-def score_size(league: League):
+def score_size(league: League) -> float:
     sizes = [len(team.players) for team in league.teams]
-    ideal_size = sum(sizes) / len(sizes)
-    # N.B sigma normalizes squared errors. We really only care about expressibility between 0 and 1.
-    sigma = 5 * np.std(sizes)
-    if sigma == 0:
-        return 1
-    squared_errors = [(size - ideal_size) ** 2 / sigma for size in sizes]
+    ideal_size = len(league.players) / len(league.teams)
+    squared_errors = [(size - ideal_size) ** 2 / (ideal_size**2) for size in sizes]
     return max(0, 1 - sum(squared_errors) / len(squared_errors))
 
 
-def score_grade(league: League):
+def score_grade(league: League) -> float:
     grades = [team.get_grade() for team in league.teams]
-    ideal_grade = 3.4  # sum(grades) / len(grades)
-    # N.B sigma normalizes squared errors. We really only care about expressibility between 0 and 1.
-    sigma = 5 * 0.58  # np.std(grades)
-    if sigma == 0:
-        return 1
-    squared_errors = [(grade - ideal_grade) ** 2 / sigma for grade in grades]
+    ideal_grade = sum([p.grade for p in league.players]) / len(league.players)
+    squared_errors = [
+        (grade - ideal_grade) ** 2 / (ideal_grade**2) for grade in grades
+    ]
     return max(0, 1 - sum(squared_errors) / len(squared_errors))
 
 
-def score_skill(league: League):
-    # Ideal skill distribution is full equality
-    # If we want we could break this down into equality for each tier of player.
+def score_skill(league: League) -> float:
     team_skills = [team.get_skill() for team in league.teams]
-    ideal_skill = 3.18  # sum(team_skills) / len(team_skills)
-    # N.B sigma normalizes squared errors. We really only care about expressibility between 0 and 1.
-    sigma = 5 * 1.03  # np.std(team_skills)
-    if sigma == 0:
-        return 1
-    squared_errors = [(skill - ideal_skill) ** 2 / sigma for skill in team_skills]
+    ideal_skill = sum([p.skill for p in league.players]) / len(league.players)
+    squared_errors = [
+        (skill - ideal_skill) ** 2 / (ideal_skill**2) for skill in team_skills
+    ]
     return max(0, 1 - sum(squared_errors) / len(squared_errors))

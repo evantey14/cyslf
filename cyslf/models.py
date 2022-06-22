@@ -79,6 +79,13 @@ class League:
     teams: List[Team]
     available_players: Set[Player]  # TODO: consider a PQ
 
+    @property
+    def players(self) -> List[Player]:
+        """Return all players in the league."""
+        return [p for team in self.teams for p in team.players] + list(
+            self.available_players
+        )
+
     def apply_moves(self, moves: List[Move]) -> None:
         for move in moves:
             if move.team_from is not None:
