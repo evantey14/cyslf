@@ -12,6 +12,7 @@ class Player:
     grade: int
     skill: int
     unavailable_days: str
+    preferred_days: str
     latitude: float
     longitude: float
     frozen: bool
@@ -85,6 +86,9 @@ class League:
         return [p for team in self.teams for p in team.players] + list(
             self.available_players
         )
+
+    def get_next_player(self) -> Player:
+        return max(self.available_players, key=lambda p: p.skill)
 
     def apply_moves(self, moves: List[Move]) -> None:
         for move in moves:

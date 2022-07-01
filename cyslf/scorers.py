@@ -30,9 +30,7 @@ def score_convenience(league: League) -> float:
             distance = get_distance(player, team)
             if np.isnan(distance):
                 continue
-            score -= (
-                min(max_distance, distance) / 246
-            )  # should be over number of players?
+            score -= min(max_distance, distance) / len(league.players)
     return max(0, score)
 
 
