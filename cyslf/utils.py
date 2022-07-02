@@ -1,7 +1,9 @@
-def get_distance(obj1, obj2):
-    return (
-        (obj1.latitude - obj2.latitude) ** 2 + (obj1.longitude - obj2.longitude) ** 2
-    ) ** 0.5
+from functools import cache
+
+
+@cache
+def get_distance(lat1, long1, lat2, long2):
+    return ((lat1 - lat2) ** 2 + (long1 - long2) ** 2) ** 0.5
 
 
 practice_fields = [  # latitude longitude

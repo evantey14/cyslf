@@ -80,6 +80,12 @@ class League:
     teams: List[Team]
     available_players: Set[Player]  # TODO: consider a PQ
 
+    def __post_init__(self):
+        self.ideal_team_grade = sum([p.grade for p in self.players]) / len(self.players)
+        self.ideal_team_skill = sum([p.skill for p in self.players]) / len(self.players)
+        self.ideal_team_size = len(self.players) / len(self.teams)
+        self.size = len(self.players)
+
     @property
     def players(self) -> List[Player]:
         """Return all players in the league."""

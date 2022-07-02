@@ -27,10 +27,12 @@ def score_convenience(league: League) -> float:
     score = 1
     for team in league.teams:
         for player in team.players:
-            distance = get_distance(player, team)
+            distance = get_distance(
+                player.latitude, player.longitude, team.latitude, team.longitude
+            )
             if np.isnan(distance):
                 continue
-            score -= min(max_distance, distance) / len(league.players)
+            score -= min(max_distance, distance) / league.size
     return max(0, score)
 
 
@@ -43,14 +45,14 @@ def score_convenience(league: League) -> float:
 
 def score_size(league: League) -> float:
     sizes = [len(team.players) for team in league.teams]
-    ideal_size = len(league.players) / len(league.teams)
+    ideal_size = league.ideal_team_size
     squared_errors = [(size - ideal_size) ** 2 / (ideal_size**2) for size in sizes]
     return max(0, 1 - sum(squared_errors) / len(squared_errors))
 
 
 def score_grade(league: League) -> float:
     grades = [team.get_grade() for team in league.teams]
-    ideal_grade = sum([p.grade for p in league.players]) / len(league.players)
+    ideal_grade = league.ideal_team_grade
     squared_errors = [
         (grade - ideal_grade) ** 2 / (ideal_grade**2) for grade in grades
     ]
@@ -59,7 +61,7 @@ def score_grade(league: League) -> float:
 
 def score_skill(league: League) -> float:
     team_skills = [team.get_skill() for team in league.teams]
-    ideal_skill = sum([p.skill for p in league.players]) / len(league.players)
+    ideal_skill = league.ideal_team_skill
     squared_errors = [
         (skill - ideal_skill) ** 2 / (ideal_skill**2) for skill in team_skills
     ]
