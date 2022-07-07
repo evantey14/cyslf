@@ -3,6 +3,8 @@ from typing import List, Optional, Set
 
 import pandas as pd
 
+from .constraints import breaks_practice_constraint
+
 
 @dataclass(frozen=True)
 class Player:
@@ -16,6 +18,17 @@ class Player:
     latitude: float
     longitude: float
     frozen: bool
+
+    def __post_init__(self):
+        if not pd.isnull(self.unavailable_days) and not pd.isnull(self.preferred_days):
+            for day in self.unavailable_days:
+                if day in self.preferred_days:
+                    raise ValueError(
+                        f"Failed to create player {self.first_name} {self.last_name} ({self.id}) "
+                        f"due to invalid day preferences: {day} was marked as both unavailable "
+                        f"({self.unavailable_days}) and preferred ({self.preferred_days}). "
+                        "Please correct this in the csv and retry."
+                    )
 
     def __repr__(self) -> str:
         return (
@@ -136,10 +149,18 @@ class League:
         for i, row in player_info.iterrows():
             player_dict = row.to_dict()
             team = player_dict.pop("team", None)
+            player = Player(**player_dict)
             if not pd.isnull(team):
-                teams[team].add_player(Player(**player_dict))
+                move = Move(player=player, team_from=None, team_to=teams[team])
+                if breaks_practice_constraint(move):
+                    raise ValueError(
+                        f"Failed to add {player} to Team {team}. The team's practice day "
+                        f"({teams[team].practice_day}) is in the players unavailable days "
+                        f"({player.unavailable_days}). Please correct this in the csv and retry."
+                    )
+                teams[team].add_player(player)
             else:
-                available_players.add(Player(**player_dict))
+                available_players.add(player)
 
         return cls(teams=list(teams.values()), available_players=available_players)
 
