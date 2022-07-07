@@ -4,6 +4,10 @@ Scorers
 Scorers should score a given league setup on a scale from 0 to 1.
 
 The main goal here is that "better league arrangement" gets a higher score.
+
+TODOs:
+    * the biggest performance boost we'd get is precomputing team scores and updating that on
+    Team.add_player and Team.remove_player. Right now, depth=3 is infeasible past like 100 players.
 """
 
 import numpy as np
@@ -23,46 +27,45 @@ def score_league(league: League) -> float:
 
 
 # CONVENIENCE SCORERS
+# TODO: this is currently the slowest scorer by far. the nan check and the min distance together
+# take like 40% of the time.
 def score_convenience(league: League) -> float:
     score = 1
+    league_size = league.size
     for team in league.teams:
+        t_lat, t_long = team.latitude, team.longitude
         for player in team.players:
-            distance = get_distance(
-                player.latitude, player.longitude, team.latitude, team.longitude
-            )
+            p_lat, p_long = player.latitude, player.longitude
+            distance = get_distance(p_lat, p_long, t_lat, t_long)
             if np.isnan(distance):
                 continue
-            score -= min(max_distance, distance) / league.size
+            score -= min(max_distance, distance) / league_size
     return max(0, score)
 
 
 # PARITY SCORERS
-
-# TODO: "ideal" numbers really only need to be calculated once. This could be fixed if these were
-# all classes.
 # TODO: make a scorer to ensure even spread of top tier players
-
-
 def score_size(league: League) -> float:
-    sizes = [len(team.players) for team in league.teams]
     ideal_size = league.ideal_team_size
-    squared_errors = [(size - ideal_size) ** 2 / (ideal_size**2) for size in sizes]
+    squared_errors = [
+        (len(team.players) - ideal_size) ** 2 / ideal_size**2 for team in league.teams
+    ]
     return max(0, 1 - sum(squared_errors) / len(squared_errors))
 
 
 def score_grade(league: League) -> float:
-    grades = [team.get_grade() for team in league.teams]
     ideal_grade = league.ideal_team_grade
     squared_errors = [
-        (grade - ideal_grade) ** 2 / (ideal_grade**2) for grade in grades
+        (team.get_grade() - ideal_grade) ** 2 / (ideal_grade**2)
+        for team in league.teams
     ]
     return max(0, 1 - sum(squared_errors) / len(squared_errors))
 
 
 def score_skill(league: League) -> float:
-    team_skills = [team.get_skill() for team in league.teams]
     ideal_skill = league.ideal_team_skill
     squared_errors = [
-        (skill - ideal_skill) ** 2 / (ideal_skill**2) for skill in team_skills
+        (team.get_skill() - ideal_skill) ** 2 / (ideal_skill**2)
+        for team in league.teams
     ]
     return max(0, 1 - sum(squared_errors) / len(squared_errors))
