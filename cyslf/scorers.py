@@ -10,20 +10,12 @@ TODOs:
     Team.add_player and Team.remove_player. Right now, depth=3 is infeasible past like 100 players.
 """
 
+from typing import Dict, Optional
+
 import numpy as np
 
 from .models import League
 from .utils import get_distance, max_distance
-
-
-# TOTAL SCORER
-def score_league(league: League) -> float:
-    return (
-        0.25 * score_skill(league)
-        + 0.25 * score_grade(league)
-        + 0.25 * score_size(league)
-        + 0.25 * score_convenience(league)
-    )
 
 
 # CONVENIENCE SCORERS
@@ -69,3 +61,39 @@ def score_skill(league: League) -> float:
         for team in league.teams
     ]
     return max(0, 1 - sum(squared_errors) / len(squared_errors))
+
+
+SCORER_MAP = {
+    "skill": score_skill,
+    "grade": score_grade,
+    "size": score_size,
+    "convenience": score_convenience,
+}
+
+# COMPOSITE SCORER
+
+DEFAULT_WEIGHTS = {
+    "skill": 0.3,
+    "grade": 0.3,
+    "size": 0.3,
+    "convenience": 0.1,
+}
+
+
+def score_league(
+    league: League, weights: Optional[Dict[str, float]] = None, verbose=False
+) -> float:
+    if weights is None:
+        weights = DEFAULT_WEIGHTS
+    score: float = 0
+    total_weight: float = 0
+    s = ""
+    for scorer_key, weight in weights.items():
+        scorer = SCORER_MAP[scorer_key]
+        score += weight * scorer(league)
+        total_weight += weight
+        if verbose:
+            s += f"{scorer(league):.3f} "
+    if verbose:
+        print(s, list(weights.keys()))
+    return score / total_weight

@@ -1,12 +1,17 @@
 import itertools as it
-from typing import List
+from typing import Dict, List, Optional
 
 from .constraints import breaks_constraints
 from .models import League, Move, Player
 from .scorers import score_league
 
 
-def find_best_moves(player: Player, league: League, depth: int = 1) -> List[Move]:
+def find_best_moves(
+    player: Player,
+    league: League,
+    depth: int = 1,
+    weights: Optional[Dict[str, float]] = None,
+) -> List[Move]:
     queue = []
     best_moves = []
     best_score = -1
@@ -22,7 +27,7 @@ def find_best_moves(player: Player, league: League, depth: int = 1) -> List[Move
         if breaks_constraints(proposed_moves):
             continue
         league.apply_moves(proposed_moves)
-        score = score_league(league)
+        score = score_league(league, weights=weights)
         league.undo_moves(proposed_moves)
         if score > best_score:
             best_score = score
