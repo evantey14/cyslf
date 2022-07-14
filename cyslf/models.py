@@ -7,6 +7,9 @@ from .constraints import breaks_practice_constraint
 from .utils import CENTROID_LAT, CENTROID_LONG
 
 
+ELITE_PLAYER_SKILL_LEVEL = 5
+
+
 @dataclass(frozen=True)
 class Player:
     id: int
@@ -89,6 +92,9 @@ class Team:
             return 0
         return sum([player.grade for player in self.players]) / len(self.players)
 
+    def get_elite_player_count(self) -> int:
+        return [p.skill for p in self.players].count(ELITE_PLAYER_SKILL_LEVEL)
+
     def __repr__(self):
         return (
             f"Team {self.name:11} "
@@ -124,6 +130,9 @@ class League:
         self.ideal_team_grade = sum([p.grade for p in self.players]) / len(self.players)
         self.ideal_team_skill = sum([p.skill for p in self.players]) / len(self.players)
         self.ideal_team_size = len(self.players) / len(self.teams)
+        self.ideal_elite_players = [p.skill for p in self.players].count(
+            ELITE_PLAYER_SKILL_LEVEL
+        ) / len(self.teams)
         self.size = len(self.players)
 
     @property
