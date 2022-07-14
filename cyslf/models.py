@@ -4,6 +4,7 @@ from typing import List, Optional, Set
 import pandas as pd
 
 from .constraints import breaks_practice_constraint
+from .scorers import SCORER_MAP
 from .utils import CENTROID_LAT, CENTROID_LONG
 
 
@@ -171,6 +172,29 @@ class League:
         for team in self.teams:
             for player in list(team.players):
                 self.apply_moves([Move(player=player, team_from=team, team_to=None)])
+
+    def details(self) -> None:
+        score_info = {}
+        for key, scorer in SCORER_MAP.items():
+            score_info[f"{key}_score"] = scorer(self)
+        with pd.option_context("display.precision", 3):
+            print(pd.DataFrame([score_info]))
+
+        team_info_dicts = []
+        for team in self.teams:
+            team_info_dict = {
+                "name": team.name,
+                "practice_day": team.practice_day,
+                "size": len(team.players),
+                "first_round_picks": team.get_elite_player_count(),
+                "mean_skill": team.get_skill(),
+                "mean_grade": team.get_grade(),
+            }
+
+            team_info_dicts.append(team_info_dict)
+        team_info_df = pd.DataFrame.from_records(team_info_dicts)
+        with pd.option_context("display.precision", 3):
+            print(team_info_df)
 
     @classmethod
     def from_csvs(cls, player_csv: str, team_csv: str) -> "League":
