@@ -23,10 +23,15 @@ def score_convenience(league: League) -> float:
     league_size = league.size
     for team in league.teams:
         t_lat, t_long = team.latitude, team.longitude
-        for player in team.players:
-            p_lat, p_long = player.latitude, player.longitude
-            distance = get_distance(p_lat, p_long, t_lat, t_long)
-            score -= min(MAX_DISTANCE, distance) / league_size
+        scaled_distances = [
+            min(
+                MAX_DISTANCE,
+                get_distance(player.latitude, player.longitude, t_lat, t_long),
+            )
+            / league_size
+            for player in team.players
+        ]
+        score -= sum(scaled_distances)
     return max(0, score)
 
 
