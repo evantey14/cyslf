@@ -9,4 +9,6 @@ practice_fields = [  # latitude longitude
 ]
 
 # Maximum distance between fields. Natural length scale for scoring
-max_distance = 0.052205081257465445
+MAX_DISTANCE = 0.052205081257465445
+CENTROID_LAT = sum([field[0] for field in practice_fields]) / len(practice_fields)
+CENTROID_LONG = sum([field[1] for field in practice_fields]) / len(practice_fields)

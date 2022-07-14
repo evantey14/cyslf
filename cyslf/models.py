@@ -4,6 +4,7 @@ from typing import List, Optional, Set
 import pandas as pd
 
 from .constraints import breaks_practice_constraint
+from .utils import CENTROID_LAT, CENTROID_LONG
 
 
 @dataclass(frozen=True)
@@ -13,28 +14,54 @@ class Player:
     last_name: str
     grade: int
     skill: int
+    coach_skill: int
+    parent_skill: int
     unavailable_days: str
     preferred_days: str
     latitude: float
     longitude: float
     frozen: bool
+    school: str
+    comment: str
+
+    @classmethod
+    def from_raw_dict(cls, raw_dict):
+        """Preprocess a raw csv row in dictionary form to create a Player."""
+        if pd.isnull(raw_dict["unavailable_days"]):
+            raw_dict["unavailable_days"] = ""
+        if pd.isnull(raw_dict["preferred_days"]):
+            raw_dict["unavailable_days"] = ""
+        if pd.isnull(raw_dict["latitude"]):
+            raw_dict["latitude"] = CENTROID_LAT
+        if pd.isnull(raw_dict["longitude"]):
+            raw_dict["longitude"] = CENTROID_LONG
+
+        raw_dict["skill"] = raw_dict["coach_skill"]
+        if pd.isnull(raw_dict["skill"]):
+            raw_dict["skill"] = raw_dict["parent_skill"]
+
+        return cls(**raw_dict)
+
+    def to_raw_dict(self) -> dict:
+        """Create a raw dict that can be saved to a csv."""
+        raw_dict = asdict(self)
+        del raw_dict["skill"]
+        if raw_dict["latitude"] == CENTROID_LAT:
+            raw_dict["latitude"] = pd.NA
+        if raw_dict["longitude"] == CENTROID_LONG:
+            raw_dict["longitude"] = pd.NA
+        return raw_dict
 
     def __post_init__(self):
-        if not pd.isnull(self.unavailable_days) and not pd.isnull(self.preferred_days):
-            for day in self.unavailable_days:
-                if day in self.preferred_days:
-                    raise ValueError(
-                        f"Failed to create player {self.first_name} {self.last_name} ({self.id}) "
-                        f"due to invalid day preferences: {day} was marked as both unavailable "
-                        f"({self.unavailable_days}) and preferred ({self.preferred_days}). "
-                        "Please correct this in the csv and retry."
-                    )
-
-    def __repr__(self) -> str:
-        return (
-            f"<{self.first_name} {self.last_name} "
-            f"s={self.skill} g={self.grade} {self.unavailable_days}>"
-        )
+        """Validate player data."""
+        for day in self.unavailable_days:
+            if day in self.preferred_days:
+                raise ValueError(
+                    f"Failed to create player {self.first_name} {self.last_name} ({self.id}) "
+                    f"due to invalid day preferences: {day} was marked as both unavailable "
+                    f"({self.unavailable_days}) and preferred ({self.preferred_days}). "
+                    "Please correct this in the csv and retry."
+                )
 
 
 @dataclass
@@ -149,7 +176,7 @@ class League:
         for i, row in player_info.iterrows():
             player_dict = row.to_dict()
             team = player_dict.pop("team", None)
-            player = Player(**player_dict)
+            player = Player.from_raw_dict(player_dict)
             if not pd.isnull(team):
                 move = Move(player=player, team_from=None, team_to=teams[team])
                 if breaks_practice_constraint(move):

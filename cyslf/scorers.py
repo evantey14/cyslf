@@ -12,15 +12,12 @@ TODOs:
 
 from typing import Dict, Optional
 
-import numpy as np
-
 from .models import League
-from .utils import get_distance, max_distance
+from .utils import MAX_DISTANCE, get_distance
 
 
 # CONVENIENCE SCORERS
-# TODO: this is currently the slowest scorer by far. the nan check and the min distance together
-# take like 40% of the time.
+# TODO: this is currently the slowest scorer by far
 def score_convenience(league: League) -> float:
     score = 1
     league_size = league.size
@@ -29,9 +26,7 @@ def score_convenience(league: League) -> float:
         for player in team.players:
             p_lat, p_long = player.latitude, player.longitude
             distance = get_distance(p_lat, p_long, t_lat, t_long)
-            if np.isnan(distance):
-                continue
-            score -= min(max_distance, distance) / league_size
+            score -= min(MAX_DISTANCE, distance) / league_size
     return max(0, score)
 
 
