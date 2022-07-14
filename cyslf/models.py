@@ -30,7 +30,7 @@ class Player:
         if pd.isnull(raw_dict["unavailable_days"]):
             raw_dict["unavailable_days"] = ""
         if pd.isnull(raw_dict["preferred_days"]):
-            raw_dict["unavailable_days"] = ""
+            raw_dict["preferred_days"] = ""
         if pd.isnull(raw_dict["latitude"]):
             raw_dict["latitude"] = CENTROID_LAT
         if pd.isnull(raw_dict["longitude"]):

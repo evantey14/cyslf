@@ -17,8 +17,18 @@ from .utils import MAX_DISTANCE, get_distance
 
 
 # CONVENIENCE SCORERS
-# TODO: this is currently the slowest scorer by far
-def score_convenience(league: League) -> float:
+def score_practice_day(league: League) -> float:
+    total_matches = 0
+    for team in league.teams:
+        practice_day = team.practice_day
+        matches = sum(
+            [1 if practice_day in p.preferred_days else 0 for p in team.players]
+        )
+        total_matches += matches
+    return total_matches / league.size
+
+
+def score_location(league: League) -> float:
     score = 1
     league_size = league.size
     for team in league.teams:
@@ -67,7 +77,8 @@ SCORER_MAP = {
     "skill": score_skill,
     "grade": score_grade,
     "size": score_size,
-    "convenience": score_convenience,
+    "location": score_location,
+    "practice_day": score_practice_day,
 }
 
 # COMPOSITE SCORER
@@ -76,7 +87,8 @@ DEFAULT_WEIGHTS = {
     "skill": 0.3,
     "grade": 0.3,
     "size": 0.3,
-    "convenience": 0.1,
+    "location": 0.05,
+    "practice_day": 0.05,
 }
 
 
