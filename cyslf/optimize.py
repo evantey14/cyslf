@@ -14,7 +14,7 @@ def find_best_moves(
 ) -> List[Move]:
     queue = []
     best_moves = []
-    best_score = -1
+    best_score: float = -1
     old_team = None
     for team in league.teams:
         if team == old_team:
@@ -35,6 +35,12 @@ def find_best_moves(
 
         if len(proposed_moves) < depth:
             last_team = proposed_moves[-1].team_to
+            if last_team is None:
+                raise ValueError(
+                    f"Proposed move tried to unassign a player, which is not allowed. Please check "
+                    f"move proposal creation. Move: {proposed_moves[-1]}"
+                )
+
             for p, t in it.product(last_team.players, league.teams):
                 moved_players = [move.player for move in proposed_moves]
                 if p in moved_players or t.name == last_team.name:
