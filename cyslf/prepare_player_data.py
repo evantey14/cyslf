@@ -21,6 +21,7 @@ parser = argparse.ArgumentParser(
 )
 parser.add_argument(
     "--division",
+    "--div",
     "-d",
     type=str,
     help="division without season (e.g. 'Boys Grades 3-4'). Spelling needs to match form data.",
@@ -159,7 +160,7 @@ def _load_registration_data(filename):
     normalized_name = full_name.str.lower().str.replace("[^a-zA-Z]", "", regex=True)
     registrations["name_key"] = normalized_name
 
-    print(f"Found {len(registrations)} registrations in division: {division}")
+    print(f"Found {len(registrations)} registrations")
     print(registrations.head())
     print("=====")
     return registrations
@@ -207,7 +208,9 @@ def _merge_existing_data_with_registrations(existing_players, registrations):
 
     players = players[ordered_columns]
 
-    print(f"Total # of players: {len(players)}")
+    print(
+        f"Finished merging old data into registrations. Total # of players: {len(players)}"
+    )
     print(players.head())
     print("=====")
     return players
@@ -268,12 +271,8 @@ def _validate_players(players):
     print("Please manually fix any listed problems before making teams.^")
 
 
-if __name__ == "__main__":
+def main():
     args = parser.parse_args()
-
-    division = "Boys Grades 3-4"
-    old_registration = "Spring2022-registrations.csv"
-    new_registration = "3-4boys-sample-22registration.csv"
 
     # Pull team and coach score from spring 2022
     existing_players = _load_existing_player_data(args.old_registration, args.division)
@@ -291,3 +290,7 @@ if __name__ == "__main__":
     player_outfile = f"{args.output_stem}-players.csv"
     print(f"Saving to {player_outfile}")
     players.to_csv(player_outfile, index=False)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "cyslf"
+version = "0.2.0"
+description = "CYS League Formation"
+authors = ["Evan Tey <evantey14@gmail.com>"]
+license = "MIT"
+exclude = ["cyslf/tests"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pandas = "^1.4.3"
+geopy = "^2.2.0"
+tqdm = "^4.64.0"
+numpy = "^1.23.1"
+
+[tool.poetry.dev-dependencies]
+pre-commit = "^2.20.0"
+jupyter = "^1.0.0"
+
+[tool.poetry.scripts]
+prepare-player-data = "cyslf.prepare_player_data:main"
+make-teams = "cyslf.make_teams:main"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

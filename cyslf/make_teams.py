@@ -29,7 +29,7 @@ parser.add_argument(
 )
 
 
-if __name__ == "__main__":
+def main():
     args = parser.parse_args()
 
     player_input_file = f"{args.input_stem}-players.csv"
@@ -62,3 +62,7 @@ if __name__ == "__main__":
     team_output_file = f"{args.output_stem}-teams.csv"
 
     league.to_csvs(player_output_file, team_output_file)
+
+
+if __name__ == "__main__":
+    main()
