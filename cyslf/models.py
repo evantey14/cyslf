@@ -8,7 +8,7 @@ from .scorers import SCORER_MAP
 from .utils import CENTROID_LAT, CENTROID_LONG
 
 
-ELITE_PLAYER_SKILL_LEVEL = 5
+ELITE_PLAYER_SKILL_LEVEL = 1
 
 
 @dataclass(frozen=True)
