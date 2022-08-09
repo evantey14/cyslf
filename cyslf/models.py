@@ -144,7 +144,7 @@ class League:
         )
 
     def get_next_player(self) -> Player:
-        return max(self.available_players, key=lambda p: p.skill)
+        return min(self.available_players, key=lambda p: p.skill)
 
     def apply_moves(self, moves: List[Move]) -> None:
         for move in moves:
