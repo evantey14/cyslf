@@ -4,6 +4,7 @@
 
 For each league, there are two parts: (1) get all the raw form data into standard player and team csvs. (2) form teams from these standardized csvs!
 
+Returning players are placed on their last season's team by default, then the remaining players are assigned while maintaining balanced teams and player convenience (see [Scoring](#scoring) for details).
 
 # Quickstart
 #### 0. Install [Python](https://www.python.org/downloads/) and open command prompt to run the following lines.
@@ -12,8 +13,8 @@ For each league, there are two parts: (1) get all the raw form data into standar
 ```
 prepare-player-data --div "Boys Grade 3-4" --old_reg  Spring2022-registrations.csv --reg 3-4boys-sample-22registration.csv -o b34
 ```
-* This command takes raw form data and converts it into the standard player csv format (see example data below). Players on teams from the prior season will be fixed to those teams by default.
-* After completion, you should probably manually inspect the results and make any adjustments necessary (eg read through the comments and place players on teams)
+* This command takes raw form data and converts it into the standard player csv format (see example data below). Players on teams from the prior season will be placed on those teams by default.
+* After completion, you should probably manually inspect the results and make any adjustments necessary (eg read through the special requests and move players around when necessary)
 * `--div` sets the division. It's used for looking up the division in the old registration data
 * `--old_reg`  sets the past data csv. This needs to have names, coach evaluations, and teams for each player.
 * `---reg` sets the current registration csv. This should have all other player-relevant data.
@@ -28,7 +29,7 @@ make-teams -i b34 -o b34-result
 * `-i` sets the input file prefixes. `b34` means read `b34-players.csv` and `b34-teams.csv`
 * `-o` sets the output file prefixes. `b34-result` means write to `b34-result-players.csv` and `b34-result-teams.csv`
 * `-c` can optionally be used to set a config file to control scoring weights (see below).
-5. Review!
+#### 5. Review!
 * Load the player csv and see if any adjustments need to be made.
 * If you want to re-run league formation, unfreeze players and remove their team values, download and run step 4 again.
 
@@ -63,7 +64,7 @@ This implementation uses a greedy algorithm. We order players by skill then go t
 
 To assign a specific player, we try placing them on each team and keep track of which arrangement produces the highest score. We also try placing them on each team and having that team "trade" a player to another team (again looking for the highest scoring player arrangement). Some arrangements are invalid -- for example if a player can't practice on Wednesday, they can't be placed on a team that practices Wednesday.
 
-More optimal algorithms exist, but this algorithm is one of the most straightforward to understand. It also lends itself well to as a "recommended assignment" tool if we ever want to have the library give suggestions one player at a time.
+More optimal algorithms exist, but this algorithm is one of the most straightforward to understand. It also lends itself well to become a "recommended assignment" tool if we ever want to have the library give suggestions one player at a time.
 
 
 # Scoring
@@ -77,4 +78,4 @@ elite = 15          # balance # of top tier players
 location = 5        # minimize player distance to practice field
 practice_day = 5    # maximize # of players' practicing on their preferred day
 ```
-If you run formation and teams aren't as good as you'd like for some score type, try increasing the weight. (For example if you really really cared giving players a nearby practice field, you could set `location = 100`).
+If you run formation and teams aren't as good as you'd like for some score type, try increasing the weight. (For example if you really really care about giving players a nearby practice field, you could set `location = 100`).
