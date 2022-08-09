@@ -7,11 +7,11 @@ license = "MIT"
 exclude = ["cyslf/tests"]
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = "^3.8"
 pandas = "^1.4.3"
 geopy = "^2.2.0"
 tqdm = "^4.64.0"
-numpy = "^1.23.1"
+numpy = "^1.21.3"
 
 [tool.poetry.dev-dependencies]
 pre-commit = "^2.20.0"
@@ -28,19 +28,14 @@ requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.tox]
-legacy_tox-ini = """
+legacy_tox_ini = """
 [tox]
-envlist = py37,py38,py39,py310
+envlist = py{38,39,310}
 isolated_build = True
 
 [testenv]
 whitelist_externals = poetry
 commands =
-    pytest
-
-[tox:.package]
-# note tox will use the same python version as under what tox is installed to package
-# so unless this is python 3 you can require a given python version for the packaging
-# environment via the basepython key
-basepython = python3
+    poetry install
+    poetry run pytest
 """
