@@ -13,10 +13,16 @@ Returning players are placed on their last season's team by default, then the re
 ```
 prepare-player-data --div "Boys Grade 3-4" --old_reg  Spring2022-registrations.csv --reg 3-4boys-sample-22registration.csv -o b34
 ```
-* This command takes raw form data and converts it into the standard player csv format (see example data below). Players on teams from the prior season will be placed on those teams by default.
-* After completion, you should probably manually inspect the results and make any adjustments necessary (eg read through the special requests and move players around when necessary)
-* `--div` sets the division. It's used for looking up the division in the old registration data
+* This command takes raw form data and converts it into the standard player csv format (see example data below). It does a handful of things to clean up the data.
+    * Players on teams from the prior season will be placed on those teams by default.
+    * Players without skill are assigned a level of 5
+* After completion, open the csv and manually make adjustments.
+    * Read the comments -- maybe parents are unable to reach certain fields
+    * If you do edit cells, make sure the formatting is consistent. `Danehy` is not the same as
+      `danehy`.
+* `--div` sets the division. It's used for looking up the division in the old registration data.
 * `--old_reg`  sets the past data csv. This needs to have names, coach evaluations, and teams for each player.
+* `--par` sets the parent request csv. This should have practice location / day / teammate preferences.
 * `---reg` sets the current registration csv. This should have all other player-relevant data.
 * `-o` sets the output file prefix. `b34` means this will write to `b34-players.csv`
 #### 3. Prepare a standard team csv
@@ -45,10 +51,11 @@ The standard player csv is expected to have the following columns:
 * `team`: assigned team (if any)
 * `coach_skill`: coach evaluated skill (1 = good, 10 = bad)
 * `parent_skill`: parent evaluated skill (used when coach evaluation is missing)
-* `longitude`: player's home longitude
-* `latitude`: player's home latitude
+* `preferred_locations: preferred practice field names
+* `disallowed_locations`: practice fields that the player can't reach
 * `preferred_days`: days player prefers to have practice. must be a string of characters from "MTWRF". For example, "MTR" means the player prefers to practice on Monday, Tuesday, or Thursday.
 * `unavailable_days`: days player is not able to practice. similar format as above.
+* `teammate_requests`: teammate names
 * `frozen`: `TRUE` or `FALSE`.
 * `school`: school name
 * `comment`: special requests from the registration form
@@ -56,8 +63,20 @@ The standard player csv is expected to have the following columns:
 The standard player csv is expected to have the following columns:
 * `name`: team name
 * `practice_day`: one of `M`, `T`, `W`, `R`, `F` (Monday, Tuesday, Wednesday, Thursday, Friday)
-* `latitude`: practice field latitude
-* `longitude`: practice field longitude
+* `location`: practice field name. Valid field names are listed below.
+
+Valid field names
+```
+Ahern
+Common
+Danehy
+Donnelly
+Magazine
+Maher
+Pacific
+Raymond
+Russell
+```
 
 # Algorithm
 This implementation uses a greedy algorithm. We order players by skill then go through and assign them to the team that gives the best overall league score.
