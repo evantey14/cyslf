@@ -4,11 +4,8 @@ from typing import List, Optional, Set
 import pandas as pd
 
 from .constraints import breaks_practice_constraint
-from .scorers import SCORER_MAP
-from .utils import CENTROID_LAT, CENTROID_LONG
-
-
-ELITE_PLAYER_SKILL_LEVEL = 1
+from .scorers import SCORER_MAP, CompositeScorer
+from .utils import CENTROID_LAT, CENTROID_LONG, ELITE_PLAYER_SKILL_LEVEL
 
 
 @dataclass(frozen=True)
@@ -77,12 +74,6 @@ class Team:
     players: Set[Player] = field(default_factory=set)
     # TODO: practice time
 
-    def add_player(self, player: Player) -> None:
-        self.players.add(player)
-
-    def remove_player(self, player: Player) -> None:
-        self.players.remove(player)
-
     def get_skill(self) -> float:
         if len(self.players) == 0:
             return 0
@@ -128,13 +119,7 @@ class League:
     available_players: Set[Player]  # TODO: consider a PQ
 
     def __post_init__(self):
-        self.ideal_team_grade = sum([p.grade for p in self.players]) / len(self.players)
-        self.ideal_team_skill = sum([p.skill for p in self.players]) / len(self.players)
-        self.ideal_team_size = len(self.players) / len(self.teams)
-        self.ideal_elite_players = [p.skill for p in self.players].count(
-            ELITE_PLAYER_SKILL_LEVEL
-        ) / len(self.teams)
-        self.size = len(self.players)
+        self.scorer = CompositeScorer(self.players, self.teams)
 
     @property
     def players(self) -> List[Player]:
@@ -146,25 +131,33 @@ class League:
     def get_next_player(self) -> Player:
         return min(self.available_players, key=lambda p: p.skill)
 
+    def add_player(self, player: Player, team: Team):
+        self.scorer.update_score_addition(player, team)
+        team.players.add(player)
+
+    def remove_player(self, player: Player, team: Team):
+        self.scorer.update_score_removal(player, team)
+        team.players.remove(player)
+
     def apply_moves(self, moves: List[Move]) -> None:
         for move in moves:
             if move.team_from is not None:
-                move.team_from.remove_player(move.player)
+                self.remove_player(move.player, move.team_from)
             else:
                 self.available_players.remove(move.player)
             if move.team_to is not None:
-                move.team_to.add_player(move.player)
+                self.add_player(move.player, move.team_to)
             else:
                 self.available_players.add(move.player)
 
     def undo_moves(self, moves: List[Move]) -> None:
         for move in moves:
             if move.team_to is not None:
-                move.team_to.remove_player(move.player)
+                self.remove_player(move.player, move.team_to)
             else:
                 self.available_players.remove(move.player)
             if move.team_from is not None:
-                move.team_from.add_player(move.player)
+                self.add_player(move.player, move.team_from)
             else:
                 self.available_players.add(move.player)
 
@@ -174,6 +167,7 @@ class League:
                 self.apply_moves([Move(player=player, team_from=team, team_to=None)])
 
     def details(self) -> None:
+        return
         score_info = {}
         for key, scorer in SCORER_MAP.items():
             score_info[f"{key}_score"] = scorer(self)
@@ -202,27 +196,34 @@ class League:
         player_info = pd.read_csv(player_csv)
         team_info = pd.read_csv(team_csv)
         teams = {}
-        available_players = set()
         for i, row in team_info.iterrows():
             teams[row["name"]] = Team(**row.to_dict())
 
+        # Add all players as available to start
+        players = []
+        assigned_team_names = []
         for i, row in player_info.iterrows():
             player_dict = row.to_dict()
-            team = player_dict.pop("team", None)
+            team_name = player_dict.pop("team", None)
             player = Player.from_raw_dict(player_dict)
-            if not pd.isnull(team):
-                move = Move(player=player, team_from=None, team_to=teams[team])
+            assigned_team_names.append(team_name)
+            players.append(player)
+
+        league = cls(teams=list(teams.values()), available_players=set(players))
+
+        # Now go and move them to their teams
+        for player, team_name in zip(players, assigned_team_names):
+            if not pd.isnull(team_name):
+                move = Move(player=player, team_from=None, team_to=teams[team_name])
                 if breaks_practice_constraint(move):
                     raise ValueError(
-                        f"Failed to add {player} to Team {team}. The team's practice day "
-                        f"({teams[team].practice_day}) is in the players unavailable days "
+                        f"Failed to add {player} to Team {team_name}. The team's practice day "
+                        f"({teams[team_name].practice_day}) is in the players unavailable days "
                         f"({player.unavailable_days}). Please correct this in the csv and retry."
                     )
-                teams[team].add_player(player)
-            else:
-                available_players.add(player)
+                league.apply_moves([move])
 
-        return cls(teams=list(teams.values()), available_players=available_players)
+        return league
 
     def to_csvs(self, player_csv: str, team_csv: str) -> None:
         teams = []

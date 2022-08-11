@@ -3,7 +3,6 @@ from typing import Dict, List, Optional
 
 from .constraints import breaks_constraints
 from .models import League, Move, Player
-from .scorers import score_league
 
 
 def find_best_moves(
@@ -27,7 +26,7 @@ def find_best_moves(
         if breaks_constraints(proposed_moves):
             continue
         league.apply_moves(proposed_moves)
-        score = score_league(league, weights=weights)
+        score = league.scorer.get_score(weights=weights)
         league.undo_moves(proposed_moves)
         if score > best_score:
             best_score = score
