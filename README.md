@@ -11,7 +11,7 @@ Returning players are placed on their last season's team by default, then the re
 #### 1. Install `cyslf` by running `pip install cyslf`
 #### 2. Prepare a standard player csv from registration data. Example:
 ```
-prepare-player-data --div "Boys Grade 3-4" --old_reg  Spring2022-registrations.csv --reg 3-4boys-sample-22registration.csv -o b34
+prepare-player-data --div "Boys Grade 3-4" --old_reg  old-registrations.csv --reg registrations.csv --par parent-requests.csv -o example
 ```
 * This command takes raw form data and converts it into the standard player csv format (see example data below). It does a handful of things to clean up the data.
     * Players on teams from the prior season will be placed on those teams by default.
@@ -51,7 +51,7 @@ The standard player csv is expected to have the following columns:
 * `team`: assigned team (if any)
 * `coach_skill`: coach evaluated skill (1 = good, 10 = bad)
 * `parent_skill`: parent evaluated skill (used when coach evaluation is missing)
-* `preferred_locations: preferred practice field names
+* `preferred_locations`: preferred practice field names
 * `disallowed_locations`: practice fields that the player can't reach
 * `preferred_days`: days player prefers to have practice. must be a string of characters from "MTWRF". For example, "MTR" means the player prefers to practice on Monday, Tuesday, or Thursday.
 * `unavailable_days`: days player is not able to practice. similar format as above.
