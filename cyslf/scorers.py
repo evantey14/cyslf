@@ -120,18 +120,16 @@ class GradeScorer:
         self.team_grades = {team.name: 0.0 for team in teams}
 
     def update_score_addition(self, player: "Player", team: "Team"):
-        # This assumes this gets run before the teams actually get updated
         self.team_grades[team.name] = (
             len(team.players) * self.team_grades[team.name] + player.grade
         ) / (len(team.players) + 1)
 
     def update_score_removal(self, player: "Player", team: "Team"):
-        team_size = len(team.players)
-        if team_size == 1:
-            return 0
+        if len(team.players) == 1:
+            self.team_grades[team.name] = 0
         self.team_grades[team.name] = (
-            team_size * self.team_grades[team.name] - player.grade
-        ) / (team_size - 1)
+            len(team.players) * self.team_grades[team.name] - player.grade
+        ) / (len(team.players) - 1)
 
     def get_score(self) -> float:
         squared_errors = [
@@ -147,19 +145,16 @@ class SkillScorer:
         self.team_skills = {team.name: 0.0 for team in teams}
 
     def update_score_addition(self, player: "Player", team: "Team"):
-        # This assumes this gets run before the teams actually get updated
         self.team_skills[team.name] = (
             len(team.players) * self.team_skills[team.name] + player.skill
         ) / (len(team.players) + 1)
 
     def update_score_removal(self, player: "Player", team: "Team"):
-        team_size = len(team.players)
-        if team_size == 1:
-            return 0
-
+        if len(team.players) == 1:
+            self.team_skills[team.name] = 0
         self.team_skills[team.name] = (
-            team_size * self.team_skills[team.name] - player.skill
-        ) / (team_size - 1)
+            len(team.players) * self.team_skills[team.name] - player.skill
+        ) / (len(team.players) - 1)
 
     def get_score(self) -> float:
         squared_errors = [
@@ -210,7 +205,7 @@ class CompositeScorer:
         score: float = 0
         total_weight: float = 0
         s = ""
-        verbose = True
+        verbose = False
         for scorer_key, weight in weights.items():
             scorer = self.scorers[scorer_key]
             score += weight * scorer.get_score()  # type: ignore
