@@ -21,12 +21,8 @@ parser.add_argument(
     type=str,
     help="output csv stem. write outputs to '{stem}-players.csv' and '{stem}-teams.csv'",
 )
-parser.add_argument(
-    "--config",
-    "-c",
-    type=str,
-    help="config file with scorer weights.",
-)
+parser.add_argument("--config", "-c", type=str, help="config file with scorer weights.")
+parser.add_argument("--depth", "-d", type=int, default=2, help="search depth")
 
 
 def main():
@@ -48,12 +44,12 @@ def main():
             weights[key] = float(config["weights"][key])
     else:
         weights = DEFAULT_WEIGHTS
-    print(f"Using weights {weights}.")
-
+    print(f"Using weights {weights}")
+    print(f"Using depth {args.depth}")
     print(f"Starting to assign {len(league.available_players)} available players.")
     for i in tqdm(range(len(league.available_players))):
         player = league.get_next_player()
-        best_moves = find_best_moves(player, league, depth=2, weights=weights)
+        best_moves = find_best_moves(player, league, depth=args.depth, weights=weights)
         league.apply_moves(best_moves)
     league.details()
 
