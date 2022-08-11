@@ -11,7 +11,7 @@ Returning players are placed on their last season's team by default, then the re
 #### 1. Install `cyslf` by running `pip install cyslf`
 #### 2. Prepare a standard player csv from registration data. Example:
 ```
-prepare-player-data --div "Boys Grade 3-4" --old_reg  old-registrations.csv --reg registrations.csv --par parent-requests.csv -o example
+prepare-player-data --div "Boys Grades 3-4" --old_reg  old-registrations.csv --reg registrations.csv --par parent-requests.csv -o example
 ```
 * This command takes raw form data and converts it into the standard player csv format (see example data below). It does a handful of things to clean up the data.
     * Players on teams from the prior season will be placed on those teams by default.
@@ -22,7 +22,7 @@ prepare-player-data --div "Boys Grade 3-4" --old_reg  old-registrations.csv --re
     * Read the comments -- maybe parents are unable to reach certain fields
     * If you do edit cells, make sure the formatting is consistent. `Danehy` is not the same as
       `danehy`.
-* `--div` sets the division. It's used for looking up the division in the old registration data.
+* `--div` sets the division. If your input is found in the "Division" column of the old registration data, that player is considered to be a continuing player in the division. You don't need to put the full division name. `"Boys Grades 3-4"` is good enough to match to `"Boys Grades 3-4 - Spring 2022 In-Town Soccer"` but you do need to be careful about spelling / upper case / lower case.
 * `--old_reg`  sets the past data csv. This needs to have names, coach evaluations, and teams for each player.
 * `--par` sets the parent request csv. This should have practice location / day / teammate preferences.
 * `--reg` sets the current registration csv. This should have all other player-relevant data.
