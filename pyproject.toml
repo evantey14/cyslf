@@ -18,6 +18,7 @@ pre-commit = "^2.20.0"
 jupyter = "^1.0.0"
 tox = "^3.25.1"
 pytest = "^7.1.2"
+line-profiler = "^3.5.1"
 
 [tool.poetry.scripts]
 prepare-player-data = "cyslf.prepare_player_data:main"

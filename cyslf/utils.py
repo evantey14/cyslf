@@ -12,3 +12,6 @@ practice_fields = [  # latitude longitude
 MAX_DISTANCE = 0.052205081257465445
 CENTROID_LAT = sum([field[0] for field in practice_fields]) / len(practice_fields)
 CENTROID_LONG = sum([field[1] for field in practice_fields]) / len(practice_fields)
+
+# Best possible skill rating
+ELITE_PLAYER_SKILL_LEVEL = 1
