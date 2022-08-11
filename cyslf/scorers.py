@@ -12,7 +12,7 @@ exposes an interface containing:
 
 from typing import TYPE_CHECKING, Dict, List, Optional
 
-from .utils import ELITE_PLAYER_SKILL_LEVEL, MAX_DISTANCE, get_distance
+from .utils import ELITE_PLAYER_SKILL_LEVEL
 
 
 if TYPE_CHECKING:
@@ -40,34 +40,18 @@ class PracticeDayScorer:
 class LocationScorer:
     def __init__(self, players: List["Player"], teams: List["Team"]):
         self.league_size = len(players)
-        self.total_distance = 0
+        self.matches = 0
 
     def update_score_addition(self, player: "Player", team: "Team"):
-        scaled_distance = (
-            min(
-                MAX_DISTANCE,
-                get_distance(
-                    player.latitude, player.longitude, team.latitude, team.longitude
-                ),
-            )
-            / self.league_size
-        )
-        self.total_distance += scaled_distance
+        if team.location in player.preferred_locations:
+            self.matches += 1
 
     def update_score_removal(self, player: "Player", team: "Team"):
-        scaled_distance = (
-            min(
-                MAX_DISTANCE,
-                get_distance(
-                    player.latitude, player.longitude, team.latitude, team.longitude
-                ),
-            )
-            / self.league_size
-        )
-        self.total_distance -= scaled_distance
+        if team.location in player.preferred_locations:
+            self.matches -= 1
 
     def get_score(self) -> float:
-        return max(0, 1 - self.total_distance)
+        return self.matches / self.league_size
 
 
 # PARITY SCORERS
@@ -127,6 +111,7 @@ class GradeScorer:
     def update_score_removal(self, player: "Player", team: "Team"):
         if len(team.players) == 1:
             self.team_grades[team.name] = 0
+            return
         self.team_grades[team.name] = (
             len(team.players) * self.team_grades[team.name] - player.grade
         ) / (len(team.players) - 1)
@@ -152,6 +137,7 @@ class SkillScorer:
     def update_score_removal(self, player: "Player", team: "Team"):
         if len(team.players) == 1:
             self.team_skills[team.name] = 0
+            return
         self.team_skills[team.name] = (
             len(team.players) * self.team_skills[team.name] - player.skill
         ) / (len(team.players) - 1)

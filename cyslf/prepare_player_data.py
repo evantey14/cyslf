@@ -1,23 +1,15 @@
 import argparse
-import logging
 
-from geopy.extra.rate_limiter import RateLimiter
-from geopy.geocoders import Nominatim
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 
+from cyslf.utils import DAY_MAP, FIELD_MAP
 
-# Prepare location finding
-geolocator = Nominatim(user_agent="cyslf")
-geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1 / 2)
-
-tqdm.pandas()
 
 pd.set_option("display.max_rows", None)
 
 parser = argparse.ArgumentParser(
-    description="Process raw registration forms into a standardized csv."
+    description="Process raw registration forms into a standard csv."
 )
 parser.add_argument(
     "--division",
@@ -33,6 +25,13 @@ parser.add_argument(
     help="Old registration csv. Where to pull coach evals + past teams from.",
 )
 parser.add_argument(
+    "--parent_requests",
+    "--par",
+    type=str,
+    help="Parent request form (practice preferences / teammate requests)",
+)
+
+parser.add_argument(
     "--registration", "--reg", type=str, help="Current registration csv."
 )
 parser.add_argument(
@@ -43,9 +42,19 @@ parser.add_argument(
 )
 
 
+def _extract_num(column, dtype):
+    """Extract numbers from a string column."""
+    return column.str.extract("(\d+)", expand=False).astype(dtype)  # noqa: W605
+
+
+def _normalize_str(column):
+    """Normalize string by removing non-alpha and lowercasing (partciularly for name matching)."""
+    return column.str.lower().str.replace("[^a-zA-Z]", "", regex=True)
+
+
 def _load_existing_player_data(filename: str, division: str):
     print("=====")
-    print(f"Reading {filename}.")
+    print(f"Reading {filename}")
     existing_players_raw = pd.read_csv(filename)
     # Only keep teams if the players were in the relevant division.
     # This is because a Spring 2nd-grader on Red shouldn't stay on Red, but
@@ -63,23 +72,21 @@ def _load_existing_player_data(filename: str, division: str):
         column_map.values()
     ]
 
-    # Extract skill
-    existing_players["coach_skill"] = (
-        existing_players["coach_skill"]
-        .str.extract("(\d+)", expand=False)  # noqa: W605
-        .astype(float)
+    # Extract coach skill
+    # TODO: decrement for younger players
+    existing_players["coach_skill"] = _extract_num(
+        existing_players["coach_skill"], float
     )
 
-    # Construct name for matching to current registration.
+    # Construct name for matching to current registration
     full_name = existing_players["first_name"] + existing_players["last_name"]
-    normalized_name = full_name.str.lower().str.replace("[^a-zA-Z]", "", regex=True)
-    existing_players["name_key"] = normalized_name
+    existing_players["name_key"] = _normalize_str(full_name)
+
+    # Handle duplicates by taking the highest score for a given name
     existing_players = (
         existing_players.drop(columns=["first_name", "last_name"])
-        # there seemed to be duplicate rows (with missing skill scores) so
-        # let's take the highest score for each name. Note this assumes
-        # that kids have unique name keys
-        .sort_values(by="coach_skill").drop_duplicates("name_key")
+        .sort_values(by="coach_skill")
+        .drop_duplicates("name_key")
     )
 
     print(f"Loaded {len(existing_players)} existing players for skill/team lookup.")
@@ -89,17 +96,68 @@ def _load_existing_player_data(filename: str, division: str):
     return existing_players
 
 
-def _lookup_location(address):
-    # If an address is poorly formed, geopy gives sad-looking warnings,
-    # so let's temporarily disable this.
-    logging.getLogger("geopy").setLevel(logging.ERROR)
-    location = geocode(address)
-    logging.getLogger("geopy").setLevel(logging.WARNING)
-    if location:
-        return location.latitude, location.longitude
-    else:
-        print(f"Failed to find address: {address}")
-        return np.nan, np.nan
+def _extract_locations(locations_str):
+    field_set = set()
+    if pd.isnull(locations_str):
+        return ""
+    for region, fields in FIELD_MAP.items():
+        # TODO: Ensure users can't type plaintext into locations_str
+        if region in locations_str:
+            field_set.update(fields)
+    return ", ".join(list(field_set))
+
+
+def _load_parent_requests(filename):
+    print(f"Reading {filename}")
+    parent_reqs = pd.read_csv(filename)
+    parent_reqs.head()
+    column_map = {
+        "Player First Name": "first_name",
+        "Player Last Name": "last_name",
+        "Preferred practice day(s)": "preferred_days",
+        "Unavailable practice day(s)": "unavailable_days",
+        "Preferred Practice Location(s)": "preferred_locations",
+        "Disallowed Practice Location(s)": "disallowed_locations",
+        "Teammate Request 1": "teammate_req1",
+        "Teammate Request 2": "teammate_req2",
+    }
+    parent_reqs = parent_reqs.rename(columns=column_map)[column_map.values()]
+
+    parent_reqs["name_key"] = _normalize_str(
+        parent_reqs["first_name"] + parent_reqs["last_name"]
+    )
+    parent_reqs["preferred_days"] = (
+        parent_reqs["preferred_days"]
+        .replace(DAY_MAP, regex=True)
+        .replace(", ", "", regex=True)
+    )
+    parent_reqs["unavailable_days"] = (
+        parent_reqs["unavailable_days"]
+        .replace(DAY_MAP, regex=True)
+        .replace(", ", "", regex=True)
+    )
+    parent_reqs["teammate_requests"] = (
+        parent_reqs["teammate_req1"] + ", " + parent_reqs["teammate_req2"]
+    )
+
+    parent_reqs["preferred_locations"] = parent_reqs["preferred_locations"].apply(
+        _extract_locations
+    )
+    parent_reqs["disallowed_locations"] = parent_reqs["disallowed_locations"].apply(
+        _extract_locations
+    )
+
+    parent_reqs = parent_reqs.drop(
+        columns=["first_name", "last_name", "teammate_req1", "teammate_req2"]
+    )
+    parent_reqs.head()
+
+    print(
+        f"Loaded {len(parent_reqs)} practice day, practice location, and teammate requests"
+    )
+    print(parent_reqs.head())
+    print("=====")
+    return parent_reqs
 
 
 def _load_registration_data(filename):
@@ -107,23 +165,11 @@ def _load_registration_data(filename):
     print(f"Reading {filename}")
     registrations_raw = pd.read_csv(filename)
 
-    # Join the two school columns
+    # Merge the two school columns
     has_other_school = ~pd.isnull(registrations_raw["School Name other:"])
     registrations_raw.loc[has_other_school, "School Name"] = registrations_raw[
         has_other_school
     ]["School Name other:"]
-
-    # Look up player latitude / longitude
-    print("Looking up latitude/longitude from addresses.")
-    registrations_raw["Postal Code"] = registrations_raw["Postal Code"].astype(str)
-    registrations_raw["Address"] = registrations_raw[
-        ["Street", "City", "Region", "Postal Code"]
-    ].agg(", ".join, axis=1)
-    registrations_raw["Location"] = registrations_raw["Address"].progress_apply(
-        _lookup_location
-    )
-    registrations_raw["latitude"] = registrations_raw["Location"].apply(lambda x: x[0])
-    registrations_raw["longitude"] = registrations_raw["Location"].apply(lambda x: x[1])
 
     column_map = {
         "Player Last Name": "last_name",
@@ -132,33 +178,20 @@ def _load_registration_data(filename):
         "Parental assessment of player ability/athleticism:": "parent_skill",
         "School Name": "school",
         "Special Requests": "comment",
-        "longitude": "longitude",
-        "latitude": "latitude",
-        "Teammate Request": "requested_teammate",
     }
     registrations = registrations_raw.rename(columns=column_map)[column_map.values()]
 
     # Extract grade
-    registrations["grade"] = (
-        registrations["grade"]
-        .str.extract("(\d+)", expand=False)  # noqa: W605
-        .astype(int)
-    )
+    # TODO: handle K and PreK grades
+    registrations["grade"] = _extract_num(registrations["grade"], int)
 
-    # Extract skill
-    registrations["parent_skill"] = (
-        registrations["parent_skill"]
-        .str.extract("(\d+)", expand=False)  # noqa: W605
-        .astype(float)
-    )
-    registrations["parent_skill"] = (
-        11 - registrations["parent_skill"]
-    )  # These have the opposite order of coach skill, so invert.
+    # Extract parent skill (they have opposite order from coach skill, so invert)
+    registrations["parent_skill"] = _extract_num(registrations["parent_skill"], float)
+    registrations["parent_skill"] = 11 - registrations["parent_skill"]
 
     # Construct name for matching to current registration.
     full_name = registrations["first_name"] + registrations["last_name"]
-    normalized_name = full_name.str.lower().str.replace("[^a-zA-Z]", "", regex=True)
-    registrations["name_key"] = normalized_name
+    registrations["name_key"] = _normalize_str(full_name)
 
     print(f"Found {len(registrations)} registrations")
     print(registrations.head())
@@ -166,16 +199,32 @@ def _load_registration_data(filename):
     return registrations
 
 
-def _merge_existing_data_with_registrations(existing_players, registrations):
+def _merge_data(existing_players, parent_reqs, registrations):
     print("=====")
-    print("Integrating old data with registrations.")
+    print("Integrating old data, parent requests, and registrations.")
+
     existing_player_match = registrations["name_key"].isin(existing_players["name_key"])
     print(
         f"{existing_player_match.sum()} out of {len(registrations)} players were matched to "
         "existing player data."
     )
     print("The following players were NOT matched:")
-    print(registrations[~existing_player_match])
+    print(
+        registrations[~existing_player_match][["first_name", "last_name"]].agg(
+            " ".join, axis=1
+        )
+    )
+
+    parent_req_match = registrations["name_key"].isin(parent_reqs["name_key"])
+    print(
+        f"{parent_req_match.sum()} out of {len(registrations)} players had matching parent requests"
+    )
+    print("The following players were NOT matched:")
+    print(
+        registrations[~parent_req_match][["first_name", "last_name"]].agg(
+            " ".join, axis=1
+        )
+    )
 
     ordered_columns = [
         "id",
@@ -185,15 +234,18 @@ def _merge_existing_data_with_registrations(existing_players, registrations):
         "team",
         "coach_skill",
         "parent_skill",
-        "longitude",
-        "latitude",
         "preferred_days",
         "unavailable_days",
+        "preferred_locations",
+        "disallowed_locations",
+        "teammate_requests",
         "frozen",
         "school",
         "comment",
     ]
-    players = registrations.merge(existing_players, how="left", on="name_key")
+    players = registrations.merge(existing_players, how="left", on="name_key").merge(
+        parent_reqs, how="left", on="name_key"
+    )
     players["id"] = players.index.values
 
     # Freeze players to a team if they already have one
@@ -211,7 +263,6 @@ def _merge_existing_data_with_registrations(existing_players, registrations):
     print(
         f"Finished merging old data into registrations. Total # of players: {len(players)}"
     )
-    print(players.head())
     print("=====")
     return players
 
@@ -220,8 +271,7 @@ def _validate_players(players):
     print("=====")
     print("Running verification checks:")
 
-    full_name = players["first_name"] + players["last_name"]
-    normalized_name = full_name.str.lower().str.replace("[^a-zA-Z]", "", regex=True)
+    normalized_name = _normalize_str(players["first_name"] + players["last_name"])
     name_counts = normalized_name.value_counts()
     duplicate_names = name_counts[name_counts > 1].index.values
     has_duplicate = normalized_name.isin(duplicate_names)
@@ -256,7 +306,10 @@ def _validate_players(players):
 
     missing_skill = pd.isnull(players.coach_skill) & pd.isnull(players.parent_skill)
     if missing_skill.sum() > 0:
-        print(f"{missing_skill.sum()} players don't have a coach or parent skill:")
+        print(
+            f"{missing_skill.sum()} players don't have a coach or parent skill. We'll manually "
+            "assign them a skill of 5."
+        )
         print(
             players[missing_skill][
                 ["id", "first_name", "last_name", "coach_skill", "parent_skill"]
@@ -264,11 +317,7 @@ def _validate_players(players):
         )
         print()
 
-        # For testing let's give them the worst score
-        # I should ask Jason about this though
         players.loc[missing_skill, "parent_skill"] = 10
-
-    print("Please manually fix any listed problems before making teams.^")
 
 
 def main():
@@ -277,11 +326,14 @@ def main():
     # Pull team and coach score from spring 2022
     existing_players = _load_existing_player_data(args.old_registration, args.division)
 
+    # Load parent requests
+    parent_reqs = _load_parent_requests(args.parent_requests)
+
     # Load current registrations
     registrations = _load_registration_data(args.registration)
 
     # Merge the old data into the current registration data.
-    players = _merge_existing_data_with_registrations(existing_players, registrations)
+    players = _merge_data(existing_players, parent_reqs, registrations)
 
     # Validate the player list
     _validate_players(players)
@@ -290,6 +342,11 @@ def main():
     player_outfile = f"{args.output_stem}-players.csv"
     print(f"Saving to {player_outfile}")
     players.to_csv(player_outfile, index=False)
+
+    print(
+        "All done! Please load into Excel/Google Sheets and read through any comments making "
+        "adjustments to cells as necessary."
+    )
 
 
 if __name__ == "__main__":
