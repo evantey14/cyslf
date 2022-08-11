@@ -54,6 +54,29 @@ class LocationScorer:
         return self.matches / self.league_size
 
 
+class TeammateScorer:
+    def __init__(self, players: List["Player"], teams: List["Team"]):
+        self.league_size = len(players)
+        self.friend_matches = 0
+
+    def update_score_addition(self, player: "Player", team: "Team"):
+        for p in team.players:
+            if f"{p.first_name} {p.last_name}" in player.teammate_requests:
+                self.friend_matches += 1
+            if f"{player.first_name} {player.last_name}" in p.teammate_requests:
+                self.friend_matches += 1
+
+    def update_score_removal(self, player: "Player", team: "Team"):
+        for p in team.players:
+            if f"{p.first_name} {p.last_name}" in player.teammate_requests:
+                self.friend_matches -= 1
+            if f"{player.first_name} {player.last_name}" in p.teammate_requests:
+                self.friend_matches -= 1
+
+    def get_score(self) -> float:
+        return self.friend_matches / self.league_size / 2
+
+
 # PARITY SCORERS
 class SizeScorer:
     def __init__(self, players: List["Player"], teams: List["Team"]):
@@ -157,6 +180,7 @@ SCORER_MAP = {
     "location": LocationScorer,
     "practice_day": PracticeDayScorer,
     "elite": EliteScorer,
+    "teammate": TeammateScorer,
 }
 
 DEFAULT_WEIGHTS = {
@@ -166,6 +190,7 @@ DEFAULT_WEIGHTS = {
     "location": 0.05,
     "practice_day": 0.05,
     "elite": 0.15,
+    "teammate": 0.1,
 }
 
 # COMPOSITE SCORER

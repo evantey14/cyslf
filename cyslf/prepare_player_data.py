@@ -73,10 +73,13 @@ def _load_existing_player_data(filename: str, division: str):
     ]
 
     # Extract coach skill
-    # TODO: decrement for younger players
     existing_players["coach_skill"] = _extract_num(
         existing_players["coach_skill"], float
     )
+    # Players not already in the current division are coming from a younger division. Since they're
+    # younger, we'll make their skill one point worse. In the future, maybe we can pick a more
+    # principled offset
+    existing_players.loc[~in_division, "coach_skill"] += 1
 
     # Construct name for matching to current registration
     full_name = existing_players["first_name"] + existing_players["last_name"]
