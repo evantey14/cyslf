@@ -37,7 +37,7 @@ def main():
 
     weights = None
     if args.config is not None:
-        config = configparser.ConfigParser()
+        config = configparser.ConfigParser(inline_comment_prefixes="#")
         config.read(args.config)
         weights = {}
         for key in config["weights"].keys():
