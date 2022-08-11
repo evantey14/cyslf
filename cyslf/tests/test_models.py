@@ -1,7 +1,6 @@
 import pandas as pd
 
 from ..models import Player
-from ..utils import CENTROID_LAT, CENTROID_LONG
 
 
 example_player = Player(
@@ -12,10 +11,12 @@ example_player = Player(
     skill=4,
     coach_skill=pd.NA,
     parent_skill=4,
+    goalie_skill=6,
     unavailable_days="",
     preferred_days="MWR",
-    latitude=CENTROID_LAT,
-    longitude=CENTROID_LONG,
+    disallowed_locations="Danehy",
+    preferred_locations="Ahern,Donnelly",
+    teammate_requests="Lionel Messi",
     frozen=True,
     school="school",
     comment=pd.NA,
