@@ -3,11 +3,11 @@ Scorers
 
 Scorers should score a given league setup on a scale from 0 to 1.
 
-The main goal here is that "better league arrangement" gets a higher score.
-
-TODOs:
-    * the biggest performance boost we'd get is precomputing team scores and updating that on
-    Team.add_player and Team.remove_player. Right now, depth=3 is infeasible past like 100 players.
+The main goal here is that "better league arrangement" gets a higher score. Each class implicitly
+exposes an interface containing:
+* update_score_addition(player, team): update internal metrics associated with adding player->team
+* update_score_removal(player, team): update internal metrics associated with removing player->team
+* get_score(): return a score between 0 and 1
 """
 
 from typing import TYPE_CHECKING, Dict, List, Optional

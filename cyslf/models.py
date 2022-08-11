@@ -132,10 +132,12 @@ class League:
         return min(self.available_players, key=lambda p: p.skill)
 
     def add_player(self, player: Player, team: Team):
+        # Note that the order matters. The scorer must run before the team changes.
         self.scorer.update_score_addition(player, team)
         team.players.add(player)
 
     def remove_player(self, player: Player, team: Team):
+        # Note that the order matters. The scorer must run before the team changes.
         self.scorer.update_score_removal(player, team)
         team.players.remove(player)
 
