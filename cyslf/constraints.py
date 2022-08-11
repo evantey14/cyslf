@@ -18,4 +18,5 @@ def breaks_practice_constraint(move: "Move") -> bool:
     return (
         move.team_to is None
         or move.team_to.practice_day in move.player.unavailable_days
+        or move.team_to.location in move.player.disallowed_locations
     )

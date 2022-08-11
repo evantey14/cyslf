@@ -12,7 +12,7 @@ exposes an interface containing:
 
 from typing import TYPE_CHECKING, Dict, List, Optional
 
-from .utils import ELITE_PLAYER_SKILL_LEVEL, MAX_DISTANCE, get_distance
+from .utils import ELITE_PLAYER_SKILL_LEVEL
 
 
 if TYPE_CHECKING:
@@ -40,34 +40,41 @@ class PracticeDayScorer:
 class LocationScorer:
     def __init__(self, players: List["Player"], teams: List["Team"]):
         self.league_size = len(players)
-        self.total_distance = 0
+        self.matches = 0
 
     def update_score_addition(self, player: "Player", team: "Team"):
-        scaled_distance = (
-            min(
-                MAX_DISTANCE,
-                get_distance(
-                    player.latitude, player.longitude, team.latitude, team.longitude
-                ),
-            )
-            / self.league_size
-        )
-        self.total_distance += scaled_distance
+        if team.location in player.preferred_locations:
+            self.matches += 1
 
     def update_score_removal(self, player: "Player", team: "Team"):
-        scaled_distance = (
-            min(
-                MAX_DISTANCE,
-                get_distance(
-                    player.latitude, player.longitude, team.latitude, team.longitude
-                ),
-            )
-            / self.league_size
-        )
-        self.total_distance -= scaled_distance
+        if team.location in player.preferred_locations:
+            self.matches -= 1
 
     def get_score(self) -> float:
-        return max(0, 1 - self.total_distance)
+        return self.matches / self.league_size
+
+
+class TeammateScorer:
+    def __init__(self, players: List["Player"], teams: List["Team"]):
+        self.league_size = len(players)
+        self.friend_matches = 0
+
+    def update_score_addition(self, player: "Player", team: "Team"):
+        for p in team.players:
+            if f"{p.first_name} {p.last_name}" in player.teammate_requests:
+                self.friend_matches += 1
+            if f"{player.first_name} {player.last_name}" in p.teammate_requests:
+                self.friend_matches += 1
+
+    def update_score_removal(self, player: "Player", team: "Team"):
+        for p in team.players:
+            if f"{p.first_name} {p.last_name}" in player.teammate_requests:
+                self.friend_matches -= 1
+            if f"{player.first_name} {player.last_name}" in p.teammate_requests:
+                self.friend_matches -= 1
+
+    def get_score(self) -> float:
+        return self.friend_matches / self.league_size / 2
 
 
 # PARITY SCORERS
@@ -127,6 +134,7 @@ class GradeScorer:
     def update_score_removal(self, player: "Player", team: "Team"):
         if len(team.players) == 1:
             self.team_grades[team.name] = 0
+            return
         self.team_grades[team.name] = (
             len(team.players) * self.team_grades[team.name] - player.grade
         ) / (len(team.players) - 1)
@@ -152,6 +160,7 @@ class SkillScorer:
     def update_score_removal(self, player: "Player", team: "Team"):
         if len(team.players) == 1:
             self.team_skills[team.name] = 0
+            return
         self.team_skills[team.name] = (
             len(team.players) * self.team_skills[team.name] - player.skill
         ) / (len(team.players) - 1)
@@ -164,6 +173,33 @@ class SkillScorer:
         return max(0, 1 - sum(squared_errors) / len(squared_errors))
 
 
+class GoalieScorer:
+    # Could be changed to do counts instead of average skill
+    def __init__(self, players: List["Player"], teams: List["Team"]):
+        self.ideal_goalie_skill = sum([p.goalie_skill for p in players]) / len(players)
+        self.team_goalie_skills = {team.name: 0.0 for team in teams}
+
+    def update_score_addition(self, player: "Player", team: "Team"):
+        self.team_goalie_skills[team.name] = (
+            len(team.players) * self.team_goalie_skills[team.name] + player.goalie_skill
+        ) / (len(team.players) + 1)
+
+    def update_score_removal(self, player: "Player", team: "Team"):
+        if len(team.players) == 1:
+            self.team_goalie_skills[team.name] = 0
+            return
+        self.team_goalie_skills[team.name] = (
+            len(team.players) * self.team_goalie_skills[team.name] - player.goalie_skill
+        ) / (len(team.players) - 1)
+
+    def get_score(self) -> float:
+        squared_errors = [
+            (goalie_skill - self.ideal_goalie_skill) ** 2 / self.ideal_goalie_skill**2
+            for goalie_skill in self.team_goalie_skills.values()
+        ]
+        return max(0, 1 - sum(squared_errors) / len(squared_errors))
+
+
 SCORER_MAP = {
     "skill": SkillScorer,
     "grade": GradeScorer,
@@ -171,6 +207,8 @@ SCORER_MAP = {
     "location": LocationScorer,
     "practice_day": PracticeDayScorer,
     "elite": EliteScorer,
+    "teammate": TeammateScorer,
+    "goalie": GoalieScorer,
 }
 
 DEFAULT_WEIGHTS = {
@@ -180,6 +218,8 @@ DEFAULT_WEIGHTS = {
     "location": 0.05,
     "practice_day": 0.05,
     "elite": 0.15,
+    "teammate": 0.1,
+    "goalie": 0.1,
 }
 
 # COMPOSITE SCORER

@@ -5,7 +5,7 @@ import pandas as pd
 
 from .constraints import breaks_practice_constraint
 from .scorers import CompositeScorer
-from .utils import CENTROID_LAT, CENTROID_LONG, ELITE_PLAYER_SKILL_LEVEL
+from .utils import ELITE_PLAYER_SKILL_LEVEL
 
 
 @dataclass(frozen=True)
@@ -17,10 +17,12 @@ class Player:
     skill: int
     coach_skill: int
     parent_skill: int
+    goalie_skill: int
     unavailable_days: str
     preferred_days: str
-    latitude: float
-    longitude: float
+    disallowed_locations: str
+    preferred_locations: str
+    teammate_requests: str
     frozen: bool
     school: str
     comment: str
@@ -28,14 +30,17 @@ class Player:
     @classmethod
     def from_raw_dict(cls, raw_dict):
         """Preprocess a raw csv row in dictionary form to create a Player."""
-        if pd.isnull(raw_dict["unavailable_days"]):
-            raw_dict["unavailable_days"] = ""
-        if pd.isnull(raw_dict["preferred_days"]):
-            raw_dict["preferred_days"] = ""
-        if pd.isnull(raw_dict["latitude"]):
-            raw_dict["latitude"] = CENTROID_LAT
-        if pd.isnull(raw_dict["longitude"]):
-            raw_dict["longitude"] = CENTROID_LONG
+        # Convert nans to empty strings
+        str_keys = [
+            "unavailable_days",
+            "preferred_days",
+            "disallowed_locations",
+            "preferred_locations",
+            "teammate_requests",
+        ]
+        for key in str_keys:
+            if pd.isnull(raw_dict[key]):
+                raw_dict[key] = ""
 
         raw_dict["skill"] = raw_dict["coach_skill"]
         if pd.isnull(raw_dict["skill"]):
@@ -47,10 +52,6 @@ class Player:
         """Create a raw dict that can be saved to a csv."""
         raw_dict = asdict(self)
         del raw_dict["skill"]
-        if raw_dict["latitude"] == CENTROID_LAT:
-            raw_dict["latitude"] = pd.NA
-        if raw_dict["longitude"] == CENTROID_LONG:
-            raw_dict["longitude"] = pd.NA
         return raw_dict
 
     def __post_init__(self):
@@ -69,8 +70,7 @@ class Player:
 class Team:
     name: str
     practice_day: str
-    latitude: float
-    longitude: float
+    location: str
     players: Set[Player] = field(default_factory=set)
     # TODO: practice time
 
@@ -172,7 +172,7 @@ class League:
         score_info = {}
         for key, scorer in self.scorer.scorers.items():
             score_info[f"{key}_score"] = scorer.get_score()
-        with pd.option_context("display.precision", 3):
+        with pd.option_context("display.precision", 4):
             print(pd.DataFrame([score_info]))
 
         team_info_dicts = []
@@ -180,6 +180,7 @@ class League:
             team_info_dict = {
                 "name": team.name,
                 "practice_day": team.practice_day,
+                "location": team.location,
                 "size": len(team.players),
                 "first_round_picks": team.get_elite_player_count(),
                 "mean_skill": team.get_skill(),
