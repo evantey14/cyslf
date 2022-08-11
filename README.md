@@ -23,7 +23,7 @@ prepare-player-data --div "Boys Grade 3-4" --old_reg  old-registrations.csv --re
 * `--div` sets the division. It's used for looking up the division in the old registration data.
 * `--old_reg`  sets the past data csv. This needs to have names, coach evaluations, and teams for each player.
 * `--par` sets the parent request csv. This should have practice location / day / teammate preferences.
-* `---reg` sets the current registration csv. This should have all other player-relevant data.
+* `--reg` sets the current registration csv. This should have all other player-relevant data.
 * `-o` sets the output file prefix. `example` means this will write to `example-players.csv`
 #### 3. Prepare a standard team csv
 * These should have team name, practice day, and practice location (see example data below)
