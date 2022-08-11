@@ -15,7 +15,9 @@ prepare-player-data --div "Boys Grade 3-4" --old_reg  old-registrations.csv --re
 ```
 * This command takes raw form data and converts it into the standard player csv format (see example data below). It does a handful of things to clean up the data.
     * Players on teams from the prior season will be placed on those teams by default.
-    * Players without skill are assigned a level of 5
+    * Players without skill are assigned a level of 5 (average)
+    * Players without a goalie skill are assigned a level of 6 (does not play goalie)
+    * Players coming from a lower division get their grades worsened by 1 point
 * After completion, open the csv and manually make adjustments.
     * Read the comments -- maybe parents are unable to reach certain fields
     * If you do edit cells, make sure the formatting is consistent. `Danehy` is not the same as
