@@ -10,7 +10,7 @@ TODOs:
     Team.add_player and Team.remove_player. Right now, depth=3 is infeasible past like 100 players.
 """
 
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from .utils import ELITE_PLAYER_SKILL_LEVEL, MAX_DISTANCE, get_distance
 
@@ -199,7 +199,7 @@ class CompositeScorer:
         for scorer in self.scorers.values():
             scorer.update_score_removal(player, team)  # type: ignore
 
-    def get_score(self, weights: Optional[dict[str, float]] = None) -> float:
+    def get_score(self, weights: Optional[Dict[str, float]] = None) -> float:
         if weights is None:
             weights = DEFAULT_WEIGHTS
         score: float = 0

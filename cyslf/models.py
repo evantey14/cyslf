@@ -4,7 +4,7 @@ from typing import List, Optional, Set
 import pandas as pd
 
 from .constraints import breaks_practice_constraint
-from .scorers import SCORER_MAP, CompositeScorer
+from .scorers import CompositeScorer
 from .utils import CENTROID_LAT, CENTROID_LONG, ELITE_PLAYER_SKILL_LEVEL
 
 
@@ -167,10 +167,9 @@ class League:
                 self.apply_moves([Move(player=player, team_from=team, team_to=None)])
 
     def details(self) -> None:
-        return
         score_info = {}
-        for key, scorer in SCORER_MAP.items():
-            score_info[f"{key}_score"] = scorer(self)
+        for key, scorer in self.scorer.scorers.items():
+            score_info[f"{key}_score"] = scorer.get_score()
         with pd.option_context("display.precision", 3):
             print(pd.DataFrame([score_info]))
 
