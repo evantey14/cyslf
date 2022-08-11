@@ -64,6 +64,7 @@ def _load_existing_player_data(filename: str, division: str):
 
     column_map = {
         "Player rating - Effectiveness": "coach_skill",
+        "Player rating - Goalie": "goalie_skill",
         "Lastname": "last_name",
         "Firstname": "first_name",
         "Assigned Team": "team",
@@ -80,6 +81,11 @@ def _load_existing_player_data(filename: str, division: str):
     # younger, we'll make their skill one point worse. In the future, maybe we can pick a more
     # principled offset
     existing_players.loc[~in_division, "coach_skill"] += 1
+
+    # Extract goalie skill
+    existing_players["goalie_skill"] = _extract_num(
+        existing_players["goalie_skill"], float
+    )
 
     # Construct name for matching to current registration
     full_name = existing_players["first_name"] + existing_players["last_name"]
@@ -237,6 +243,7 @@ def _merge_data(existing_players, parent_reqs, registrations):
         "team",
         "coach_skill",
         "parent_skill",
+        "goalie_skill",
         "preferred_days",
         "unavailable_days",
         "preferred_locations",
@@ -310,8 +317,8 @@ def _validate_players(players):
     missing_skill = pd.isnull(players.coach_skill) & pd.isnull(players.parent_skill)
     if missing_skill.sum() > 0:
         print(
-            f"{missing_skill.sum()} players don't have a coach or parent skill. We'll manually "
-            "assign them a skill of 5."
+            f"{missing_skill.sum()} players don't have a coach or parent skill. We'll automatically"
+            " assign them a skill of 5."
         )
         print(
             players[missing_skill][
@@ -320,7 +327,15 @@ def _validate_players(players):
         )
         print()
 
-        players.loc[missing_skill, "parent_skill"] = 10
+        players.loc[missing_skill, "parent_skill"] = 5
+
+    missing_goalie_skill = pd.isnull(players.goalie_skill)
+    if missing_goalie_skill.sum() > 0:
+        print(
+            f"{missing_goalie_skill.sum()} players don't have a goalie skill. Automatically "
+            "assigning them a skill of 6 (does not play goalie)."
+        )
+        players.loc[missing_goalie_skill, "goalie_skill"] = 6
 
 
 def main():

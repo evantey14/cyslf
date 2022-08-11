@@ -53,6 +53,7 @@ The standard player csv is expected to have the following columns:
 * `team`: assigned team (if any)
 * `coach_skill`: coach evaluated skill (1 = good, 10 = bad)
 * `parent_skill`: parent evaluated skill (used when coach evaluation is missing)
+* `goalie_skill`: coach evaluated skill (1 = good, 6 = does not play goalie)
 * `preferred_locations`: preferred practice field names
 * `disallowed_locations`: practice fields that the player can't reach
 * `preferred_days`: days player prefers to have practice. must be a string of characters from "MTWRF". For example, "MTR" means the player prefers to practice on Monday, Tuesday, or Thursday.
@@ -96,6 +97,7 @@ skill = 10          # balance average team skill
 grade = 10          # balance average team grade
 size = 10           # balance average team size
 elite = 10          # balance # of top tier players
+goalie = 10         # balance goalie skill
 location = 10       # minimize player distance to practice field
 practice_day = 10   # maximize # of players' practicing on their preferred day
 teammate = 10       # honor player teammate requests

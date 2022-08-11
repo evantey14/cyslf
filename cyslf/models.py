@@ -17,6 +17,7 @@ class Player:
     skill: int
     coach_skill: int
     parent_skill: int
+    goalie_skill: int
     unavailable_days: str
     preferred_days: str
     disallowed_locations: str
@@ -171,7 +172,7 @@ class League:
         score_info = {}
         for key, scorer in self.scorer.scorers.items():
             score_info[f"{key}_score"] = scorer.get_score()
-        with pd.option_context("display.precision", 3):
+        with pd.option_context("display.precision", 4):
             print(pd.DataFrame([score_info]))
 
         team_info_dicts = []
@@ -179,6 +180,7 @@ class League:
             team_info_dict = {
                 "name": team.name,
                 "practice_day": team.practice_day,
+                "location": team.location,
                 "size": len(team.players),
                 "first_round_picks": team.get_elite_player_count(),
                 "mean_skill": team.get_skill(),

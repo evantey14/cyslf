@@ -173,6 +173,33 @@ class SkillScorer:
         return max(0, 1 - sum(squared_errors) / len(squared_errors))
 
 
+class GoalieScorer:
+    # Could be changed to do counts instead of average skill
+    def __init__(self, players: List["Player"], teams: List["Team"]):
+        self.ideal_goalie_skill = sum([p.goalie_skill for p in players]) / len(players)
+        self.team_goalie_skills = {team.name: 0.0 for team in teams}
+
+    def update_score_addition(self, player: "Player", team: "Team"):
+        self.team_goalie_skills[team.name] = (
+            len(team.players) * self.team_goalie_skills[team.name] + player.goalie_skill
+        ) / (len(team.players) + 1)
+
+    def update_score_removal(self, player: "Player", team: "Team"):
+        if len(team.players) == 1:
+            self.team_goalie_skills[team.name] = 0
+            return
+        self.team_goalie_skills[team.name] = (
+            len(team.players) * self.team_goalie_skills[team.name] - player.goalie_skill
+        ) / (len(team.players) - 1)
+
+    def get_score(self) -> float:
+        squared_errors = [
+            (goalie_skill - self.ideal_goalie_skill) ** 2 / self.ideal_goalie_skill**2
+            for goalie_skill in self.team_goalie_skills.values()
+        ]
+        return max(0, 1 - sum(squared_errors) / len(squared_errors))
+
+
 SCORER_MAP = {
     "skill": SkillScorer,
     "grade": GradeScorer,
@@ -181,6 +208,7 @@ SCORER_MAP = {
     "practice_day": PracticeDayScorer,
     "elite": EliteScorer,
     "teammate": TeammateScorer,
+    "goalie": GoalieScorer,
 }
 
 DEFAULT_WEIGHTS = {
@@ -191,6 +219,7 @@ DEFAULT_WEIGHTS = {
     "practice_day": 0.05,
     "elite": 0.15,
     "teammate": 0.1,
+    "goalie": 0.1,
 }
 
 # COMPOSITE SCORER
