@@ -35,6 +35,8 @@ make-teams -i example -o example-result
 * `-i` sets the input file prefixes. `example` means read `example-players.csv` and `example-teams.csv`
 * `-o` sets the output file prefixes. `example-result` means write to `example-result-players.csv` and `example-result-teams.csv`
 * `-c` can optionally be used to set a config file to control scoring weights (see below).
+* `-d` can optionally be used to set the search depth. This is how hard the algorithm tries to
+  rearrange players. 4 or 5 will probably take too long to run, 2 or 3 are probably good enough.
 #### 5. Review!
 * Load the player csv and see if any adjustments need to be made.
 * If you want to re-run league formation, unfreeze players and remove their team values, download and run step 4 again.
@@ -81,7 +83,7 @@ Russell
 # Algorithm
 This implementation uses a greedy algorithm. We order players by skill then go through and assign them to the team that gives the best overall league score.
 
-To assign a specific player, we try placing them on each team and keep track of which arrangement produces the highest score. We also try placing them on each team and having that team "trade" a player to another team (again looking for the highest scoring player arrangement). Some arrangements are invalid -- for example if a player can't practice on Wednesday, they can't be placed on a team that practices Wednesday.
+To assign a specific player, we try placing them on each team and keep track of which arrangement produces the highest score. We also try placing them on each team and having that team "trade" a player to another team (again looking for the highest scoring player arrangement). We can continue trying to trade players and evaluating arrangements by increasing the `-d` argument to `make-teams` (`make-teams -d 4 ...` tells the algorithm to go 3 trades deep when conducting the search). Note that some arrangements are invalid -- for example if a player can't practice on Wednesday, they can't be placed on a team that practices Wednesday.
 
 More optimal algorithms exist, but this algorithm is one of the most straightforward to understand. It also lends itself well to become a "recommended assignment" tool if we ever want to have the library give suggestions one player at a time.
 
