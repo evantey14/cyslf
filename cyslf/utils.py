@@ -16,3 +16,6 @@ FIELD_MAP = {
     "West": ["Danehy", "Raymond", "Maher"],
     "North": ["Danehy", "Raymond", "Russell"],
 }
+
+# Threshold below which a player counts as a goalie
+GOALIE_THRESHOLD = 3

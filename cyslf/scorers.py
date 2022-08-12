@@ -12,7 +12,7 @@ exposes an interface containing:
 
 from typing import TYPE_CHECKING, Dict, List, Optional
 
-from .utils import ELITE_PLAYER_SKILL_LEVEL
+from .utils import ELITE_PLAYER_SKILL_LEVEL, GOALIE_THRESHOLD
 
 
 if TYPE_CHECKING:
@@ -113,6 +113,8 @@ class EliteScorer:
             self.team_elite_players[team.name] -= 1
 
     def get_score(self) -> float:
+        if self.ideal_elite_players == 0:
+            return 0
         squared_errors = [
             (elite_players - self.ideal_elite_players) ** 2
             / self.ideal_elite_players**2
@@ -176,26 +178,23 @@ class SkillScorer:
 class GoalieScorer:
     # Could be changed to do counts instead of average skill
     def __init__(self, players: List["Player"], teams: List["Team"]):
-        self.ideal_goalie_skill = sum([p.goalie_skill for p in players]) / len(players)
-        self.team_goalie_skills = {team.name: 0.0 for team in teams}
+        self.ideal_goalies = sum(
+            [p.goalie_skill <= GOALIE_THRESHOLD for p in players]
+        ) / len(players)
+        self.team_goalies = {team.name: 0 for team in teams}
 
     def update_score_addition(self, player: "Player", team: "Team"):
-        self.team_goalie_skills[team.name] = (
-            len(team.players) * self.team_goalie_skills[team.name] + player.goalie_skill
-        ) / (len(team.players) + 1)
+        if player.goalie_skill <= GOALIE_THRESHOLD:
+            self.team_goalies[team.name] += 1
 
     def update_score_removal(self, player: "Player", team: "Team"):
-        if len(team.players) == 1:
-            self.team_goalie_skills[team.name] = 0
-            return
-        self.team_goalie_skills[team.name] = (
-            len(team.players) * self.team_goalie_skills[team.name] - player.goalie_skill
-        ) / (len(team.players) - 1)
+        if player.goalie_skill <= GOALIE_THRESHOLD:
+            self.team_goalies[team.name] -= 1
 
     def get_score(self) -> float:
         squared_errors = [
-            (goalie_skill - self.ideal_goalie_skill) ** 2 / self.ideal_goalie_skill**2
-            for goalie_skill in self.team_goalie_skills.values()
+            (goalies - self.ideal_goalies) ** 2 / self.ideal_goalies**2
+            for goalies in self.team_goalies.values()
         ]
         return max(0, 1 - sum(squared_errors) / len(squared_errors))
 
