@@ -7,7 +7,7 @@ For each league, there are two parts: (1) get all the raw form data into standar
 Returning players are placed on their last season's team by default, then the remaining players are assigned while maintaining balanced teams and player convenience (see [Scoring](#scoring) for details).
 
 # Quickstart
-#### 0. Install [Python](https://www.python.org/downloads/) and open command prompt to run the following lines.
+#### 0. Install [Python](https://www.python.org/downloads/) and open command prompt to run the following lines. (For Windows, try installing [Miniconda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/windows.html) and using anaconda prompt instead.)
 #### 1. Install `cyslf` by running `pip install cyslf`
 #### 2. Prepare a standard player csv from registration data. Example:
 ```
