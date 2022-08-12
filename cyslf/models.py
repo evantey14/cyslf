@@ -5,7 +5,7 @@ import pandas as pd
 
 from .constraints import breaks_practice_constraint
 from .scorers import CompositeScorer
-from .utils import ELITE_PLAYER_SKILL_LEVEL
+from .utils import ELITE_PLAYER_SKILL_LEVEL, GOALIE_THRESHOLD
 
 
 @dataclass(frozen=True)
@@ -86,6 +86,9 @@ class Team:
 
     def get_elite_player_count(self) -> int:
         return [p.skill for p in self.players].count(ELITE_PLAYER_SKILL_LEVEL)
+
+    def get_goalies(self) -> int:
+        return sum([p.goalie_skill <= GOALIE_THRESHOLD for p in self.players])
 
     def __repr__(self):
         return (
@@ -183,6 +186,7 @@ class League:
                 "location": team.location,
                 "size": len(team.players),
                 "first_round_picks": team.get_elite_player_count(),
+                "goalies": team.get_goalies(),
                 "mean_skill": team.get_skill(),
                 "mean_grade": team.get_grade(),
             }
