@@ -4,10 +4,10 @@ from .utils import DAY_MAP, FIELD_MAP
 
 
 if TYPE_CHECKING:
-    from .models import Player
+    from .models import Player, Team
 
 
-def validate_strs(player: "Player"):
+def validate_player_strs(player: "Player"):
     for key in ["first_name", "last_name"]:
         value = player.__getattribute__(key)
         if not isinstance(value, str):
@@ -23,7 +23,7 @@ def validate_strs(player: "Player"):
             )
 
 
-def validate_ints(player: "Player"):
+def validate_player_ints(player: "Player"):
     for key in ["grade", "skill", "goalie_skill"]:
         value = player.__getattribute__(key)
         if not isinstance(value, int) and not isinstance(value, float):
@@ -39,7 +39,7 @@ def validate_ints(player: "Player"):
             )
 
 
-def validate_days(player: "Player"):
+def validate_player_days(player: "Player"):
     valid_days = "".join(list(DAY_MAP.values()))
     for day in player.unavailable_days + player.preferred_days:
         if day not in valid_days:
@@ -59,7 +59,7 @@ def validate_days(player: "Player"):
             )
 
 
-def validate_bools(player: "Player"):
+def validate_player_bools(player: "Player"):
     for key in ["lock", "emailed_parents"]:
         value = player.__getattribute__(key)
         if not isinstance(value, bool):
@@ -77,7 +77,7 @@ def validate_bools(player: "Player"):
         )
 
 
-def validate_locations(player: "Player"):
+def validate_player_locations(player: "Player"):
     valid_locations = set()
     for region, fields in FIELD_MAP.items():
         valid_locations.update(fields)
@@ -101,3 +101,39 @@ def validate_locations(player: "Player"):
                 f"({player.disallowed_locations}) and preferred ({player.preferred_locations}). "
                 "Please correct this in the csv and retry."
             )
+
+
+def validate_team_name(team: "Team"):
+    if not isinstance(team.name, str):
+        raise ValueError(
+            f"Failed to create team {team}. Name should be a string, but was instead a "
+            f"{type(team.name)}. Please correct the input csv and retry."
+        )
+
+    if len(team.name) == 0:
+        raise ValueError(
+            f"Failed to create team {team}. Name should not have length == 0. Please correct the "
+            "input csv and retry."
+        )
+
+
+def validate_team_day(team: "Team"):
+    valid_days = "".join(list(DAY_MAP.values()))
+    if team.practice_day not in valid_days:
+        raise ValueError(
+            f"Failed to create team {team.name}. Practice day {team.practice_day} is not a valid "
+            f"practice day ({valid_days}). Please orrect the input csv and retry."
+        )
+
+
+def validate_team_location(team: "Team"):
+    valid_locations = set()
+    for region, fields in FIELD_MAP.items():
+        valid_locations.update(fields)
+
+    if team.location not in valid_locations:
+        raise ValueError(
+            f"Failed to create team {team.name}. Location {team.location} is not in the valid "
+            f"location list: {valid_locations}. Please check spelling, correct the input csv and "
+            "retry"
+        )

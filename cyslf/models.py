@@ -13,11 +13,14 @@ from .utils import (
     TOP_TIER_SKILLS,
 )
 from .validation import (
-    validate_bools,
-    validate_days,
-    validate_ints,
-    validate_locations,
-    validate_strs,
+    validate_player_bools,
+    validate_player_days,
+    validate_player_ints,
+    validate_player_locations,
+    validate_player_strs,
+    validate_team_day,
+    validate_team_location,
+    validate_team_name,
 )
 
 
@@ -70,11 +73,11 @@ class Player:
 
     def __post_init__(self):
         """Validate player data."""
-        validate_strs(self)
-        validate_ints(self)
-        validate_bools(self)
-        validate_days(self)
-        validate_locations(self)
+        validate_player_strs(self)
+        validate_player_ints(self)
+        validate_player_bools(self)
+        validate_player_days(self)
+        validate_player_locations(self)
 
 
 @dataclass
@@ -118,6 +121,11 @@ class Team:
             f"skill={self.get_skill():.2f}, "
             f"grade={self.get_grade():.2f})"
         )
+
+    def __post_init__(self):
+        validate_team_name(self)
+        validate_team_day(self)
+        validate_team_location(self)
 
 
 @dataclass(frozen=True)
