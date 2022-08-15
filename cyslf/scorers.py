@@ -145,8 +145,8 @@ class GradeScorer:
         self.total_grade += player.grade
         self.total_players += 1
         self.team_grades[team.name] = _update_rolling_mean(
-            len(team.players),
             self.team_grades[team.name],
+            len(team.players),
             player.grade,
             add_value=True,
         )
@@ -155,8 +155,8 @@ class GradeScorer:
         self.total_grade -= player.grade
         self.total_players -= 1
         self.team_grades[team.name] = _update_rolling_mean(
-            len(team.players),
             self.team_grades[team.name],
+            len(team.players),
             player.grade,
             add_value=False,
         )
@@ -177,8 +177,8 @@ class SkillScorer:
         self.total_skill += player.skill
         self.total_players += 1
         self.team_skills[team.name] = _update_rolling_mean(
-            len(team.players),
             self.team_skills[team.name],
+            len(team.players),
             player.skill,
             add_value=True,
         )
@@ -187,8 +187,8 @@ class SkillScorer:
         self.total_skill -= player.skill
         self.total_players -= 1
         self.team_skills[team.name] = _update_rolling_mean(
-            len(team.players),
             self.team_skills[team.name],
+            len(team.players),
             player.skill,
             add_value=False,
         )
