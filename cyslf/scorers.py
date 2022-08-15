@@ -20,38 +20,36 @@ if TYPE_CHECKING:
 
 
 # CONVENIENCE SCORERS
-class PracticeDayScorer:
+class CountScorer:
     def __init__(self, players: List["Player"], teams: List["Team"]):
         self.league_size = len(players)
-        self.matches = 0
+        self.count = 0
+        for t in teams:
+            self.count += sum([self._count_player(p, t) for p in t.players])
+
+    def _count_player(self, player: "Player", team: "Team"):
+        raise NotImplementedError
 
     def update_score_addition(self, player: "Player", team: "Team"):
-        if team.practice_day in player.preferred_days:
-            self.matches += 1
+        if self._count_player(player, team):
+            self.count += 1
 
     def update_score_removal(self, player: "Player", team: "Team"):
-        if team.practice_day in player.preferred_days:
-            self.matches -= 1
+        if self._count_player(player, team):
+            self.count -= 1
 
     def get_score(self) -> float:
-        return self.matches / self.league_size
+        return self.count / self.league_size
 
 
-class LocationScorer:
-    def __init__(self, players: List["Player"], teams: List["Team"]):
-        self.league_size = len(players)
-        self.matches = 0
+class PracticeDayScorer(CountScorer):
+    def _count_player(self, player: "Player", team: "Team"):
+        return team.practice_day in player.preferred_days
 
-    def update_score_addition(self, player: "Player", team: "Team"):
-        if team.location in player.preferred_locations:
-            self.matches += 1
 
-    def update_score_removal(self, player: "Player", team: "Team"):
-        if team.location in player.preferred_locations:
-            self.matches -= 1
-
-    def get_score(self) -> float:
-        return self.matches / self.league_size
+class LocationScorer(CountScorer):
+    def _count_player(self, player: "Player", team: "Team"):
+        return team.location in player.preferred_locations
 
 
 class TeammateScorer:
@@ -95,129 +93,92 @@ def _update_rolling_mean(old_mean, old_size, value, add_value):
         return (old_size * old_mean - value) / (old_size - 1)
 
 
-class SizeScorer:
+class CountParityScorer:
     def __init__(self, players: List["Player"], teams: List["Team"]):
-        self.total_players = sum([len(t.players) for t in teams])
-        self.team_sizes = {team.name: 0 for team in teams}
+        self.total_player_count = 0
+        for t in teams:
+            self.total_player_count += sum([self._count_player(p) for p in t.players])
+        self.team_counts = {team.name: 0 for team in teams}
+
+    def _count_player(self, player: "Player") -> bool:
+        raise NotImplementedError
 
     def update_score_addition(self, player: "Player", team: "Team"):
-        self.total_players += 1
-        self.team_sizes[team.name] += 1
+        if self._count_player(player):
+            self.total_player_count += 1
+            self.team_counts[team.name] += 1
 
     def update_score_removal(self, player: "Player", team: "Team"):
-        self.total_players -= 1
-        self.team_sizes[team.name] -= 1
+        if self._count_player(player):
+            self.total_player_count -= 1
+            self.team_counts[team.name] -= 1
 
     def get_score(self) -> float:
-        ideal_size = self.total_players / len(self.team_sizes)
-        rmse = _calculate_rmse(self.team_sizes.values(), ideal_size)
+        ideal_team_count = self.total_player_count / len(self.team_counts)
+        rmse = _calculate_rmse(self.team_counts.values(), ideal_team_count)
         return max(0, 1 - rmse)
 
 
-class EliteScorer:
+class SizeScorer(CountParityScorer):
+    def _count_player(self, player: "Player"):
+        return True
+
+
+class EliteScorer(CountParityScorer):
+    def _count_player(self, player: "Player"):
+        return player.skill == ELITE_PLAYER_SKILL_LEVEL
+
+
+class GoalieScorer(CountParityScorer):
+    def _count_player(self, player: "Player"):
+        return player.goalie_skill <= GOALIE_THRESHOLD
+
+
+class MeanParityScorer:
     def __init__(self, players: List["Player"], teams: List["Team"]):
-        self.total_elite_players = sum([t.get_elite_player_count() for t in teams])
-        self.team_elite_players = {team.name: 0 for team in teams}
-
-    def update_score_addition(self, player: "Player", team: "Team"):
-        if player.skill == ELITE_PLAYER_SKILL_LEVEL:
-            self.total_elite_players += 1
-            self.team_elite_players[team.name] += 1
-
-    def update_score_removal(self, player: "Player", team: "Team"):
-        if player.skill == ELITE_PLAYER_SKILL_LEVEL:
-            self.total_elite_players -= 1
-            self.team_elite_players[team.name] -= 1
-
-    def get_score(self) -> float:
-        ideal_elite_players = self.total_elite_players / len(self.team_elite_players)
-        rmse = _calculate_rmse(self.team_elite_players.values(), ideal_elite_players)
-        return max(0, 1 - rmse)
-
-
-class GradeScorer:
-    def __init__(self, players: List["Player"], teams: List["Team"]):
+        self.total_value = 0
+        for t in teams:
+            self.total_value += sum([self._get_value(p) for p in t.players])
         self.total_players = sum([len(t.players) for t in teams])
-        self.total_grade = sum([t.get_grade() for t in teams])
-        self.team_grades = {team.name: 0.0 for team in teams}
+        self.team_means = {team.name: 0.0 for team in teams}
+
+    def _get_value(self, player: "Player"):
+        raise NotImplementedError
 
     def update_score_addition(self, player: "Player", team: "Team"):
-        self.total_grade += player.grade
+        self.total_value += self._get_value(player)
         self.total_players += 1
-        self.team_grades[team.name] = _update_rolling_mean(
-            self.team_grades[team.name],
+        self.team_means[team.name] = _update_rolling_mean(
+            self.team_means[team.name],
             len(team.players),
-            player.grade,
+            self._get_value(player),
             add_value=True,
         )
 
     def update_score_removal(self, player: "Player", team: "Team"):
-        self.total_grade -= player.grade
+        self.total_value -= self._get_value(player)
         self.total_players -= 1
-        self.team_grades[team.name] = _update_rolling_mean(
-            self.team_grades[team.name],
+        self.team_means[team.name] = _update_rolling_mean(
+            self.team_means[team.name],
             len(team.players),
-            player.grade,
+            self._get_value(player),
             add_value=False,
         )
 
     def get_score(self) -> float:
-        ideal_grade = self.total_grade / self.total_players
-        rmse = _calculate_rmse(self.team_grades.values(), ideal_grade)
+        ideal_value = self.total_value / self.total_players
+        rmse = _calculate_rmse(self.team_means.values(), ideal_value)
         return max(0, 1 - rmse)
 
 
-class SkillScorer:
-    def __init__(self, players: List["Player"], teams: List["Team"]):
-        self.total_players = sum([len(t.players) for t in teams])
-        self.total_skill = sum([t.get_skill() for t in teams])
-        self.team_skills = {team.name: 0.0 for team in teams}
-
-    def update_score_addition(self, player: "Player", team: "Team"):
-        self.total_skill += player.skill
-        self.total_players += 1
-        self.team_skills[team.name] = _update_rolling_mean(
-            self.team_skills[team.name],
-            len(team.players),
-            player.skill,
-            add_value=True,
-        )
-
-    def update_score_removal(self, player: "Player", team: "Team"):
-        self.total_skill -= player.skill
-        self.total_players -= 1
-        self.team_skills[team.name] = _update_rolling_mean(
-            self.team_skills[team.name],
-            len(team.players),
-            player.skill,
-            add_value=False,
-        )
-
-    def get_score(self) -> float:
-        ideal_skill = self.total_skill / self.total_players
-        rmse = _calculate_rmse(self.team_skills.values(), ideal_skill)
-        return max(0, 1 - rmse)
+class GradeScorer(MeanParityScorer):
+    def _get_value(self, player: "Player"):
+        return player.grade
 
 
-class GoalieScorer:
-    def __init__(self, players: List["Player"], teams: List["Team"]):
-        self.total_goalies = sum([t.get_goalies() for t in teams])
-        self.team_goalies = {team.name: 0 for team in teams}
-
-    def update_score_addition(self, player: "Player", team: "Team"):
-        if player.goalie_skill <= GOALIE_THRESHOLD:
-            self.total_goalies += 1
-            self.team_goalies[team.name] += 1
-
-    def update_score_removal(self, player: "Player", team: "Team"):
-        if player.goalie_skill <= GOALIE_THRESHOLD:
-            self.total_goalies -= 1
-            self.team_goalies[team.name] -= 1
-
-    def get_score(self) -> float:
-        ideal_goalies = self.total_goalies / len(self.team_goalies)
-        rmse = _calculate_rmse(self.team_goalies.values(), ideal_goalies)
-        return max(0, 1 - rmse)
+class SkillScorer(MeanParityScorer):
+    def _get_value(self, player: "Player"):
+        return player.skill
 
 
 SCORER_MAP = {

@@ -172,11 +172,8 @@ class League:
                 self.apply_moves([Move(player=player, team_from=team, team_to=None)])
 
     def details(self) -> None:
-        score_info = {}
         for key, scorer in self.scorer.scorers.items():
-            score_info[f"{key}_score"] = scorer.get_score()
-        with pd.option_context("display.precision", 4):
-            print(pd.DataFrame([score_info]))
+            print(f"{key:12}: {scorer.get_score():.4f}")
 
         team_info_dicts = []
         for team in self.teams:
