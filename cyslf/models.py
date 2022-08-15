@@ -241,12 +241,20 @@ class League:
         # Now go and move them to their teams
         for player, team_name in zip(players, assigned_team_names):
             if not pd.isnull(team_name):
+                if team_name not in teams:
+                    raise ValueError(
+                        f"Failed to add {player.first_name} {player.last_name} to Team "
+                        f"{team_name}. This team was not found in the team information: "
+                        f"{list(teams.keys())}. Please check your spelling, correct this in the "
+                        "csv and retry."
+                    )
                 move = Move(player=player, team_from=None, team_to=teams[team_name])
                 if breaks_practice_constraint(move):
                     raise ValueError(
-                        f"Failed to add {player} to Team {team_name}. The team's practice day "
-                        f"({teams[team_name].practice_day}) is in the players unavailable days "
-                        f"({player.unavailable_days}). Please correct this in the csv and retry."
+                        f"Failed to add {player.first_name} {player.last_name} to Team "
+                        f"{team_name}. This player's practice info is incompatible with the team's "
+                        f"practice info:\n{player}\n{teams[team_name]}.\nTry checking the practice "
+                        "day and location before correcting this in the input csv and retrying."
                     )
                 league.apply_moves([move])
 
