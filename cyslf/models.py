@@ -209,7 +209,7 @@ class League:
             team_info_dicts.append(team_info_dict)
         team_info_df = pd.DataFrame.from_records(team_info_dicts)
         with pd.option_context("display.precision", 3):
-            print(team_info_df)
+            print(team_info_df.sort_values(by="name"))
 
     @classmethod
     def from_csvs(cls, player_csv: str, team_csv: str) -> "League":
