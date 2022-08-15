@@ -12,6 +12,7 @@ from .utils import (
     MID_TIER_SKILLS,
     TOP_TIER_SKILLS,
 )
+from .validation import validate_days, validate_ints, validate_locations, validate_strs
 
 
 @dataclass(frozen=True)
@@ -62,14 +63,10 @@ class Player:
 
     def __post_init__(self):
         """Validate player data."""
-        for day in self.unavailable_days:
-            if day in self.preferred_days:
-                raise ValueError(
-                    f"Failed to create player {self.first_name} {self.last_name} ({self.id}) "
-                    f"due to invalid day preferences: {day} was marked as both unavailable "
-                    f"({self.unavailable_days}) and preferred ({self.preferred_days}). "
-                    "Please correct this in the csv and retry."
-                )
+        validate_strs(self)
+        validate_ints(self)
+        validate_days(self)
+        validate_locations(self)
 
 
 @dataclass
@@ -123,13 +120,6 @@ class Move:
     team_from: Optional[Team] = None
     team_to: Optional[Team] = None
 
-    def __repr__(self):
-        return (
-            f"Move {self.player}\n"
-            f"\t from: {self.team_from}\n"
-            f"\t   to: {self.team_to}\n"
-        )
-
 
 @dataclass
 class League:
@@ -147,6 +137,7 @@ class League:
         )
 
     def get_next_player(self) -> Player:
+        """Gets the next highest-skilled available player for assignment."""
         return min(self.available_players, key=lambda p: p.skill)
 
     def add_player(self, player: Player, team: Team):
@@ -213,7 +204,6 @@ class League:
 
     @classmethod
     def from_csvs(cls, player_csv: str, team_csv: str) -> "League":
-        # TODO: check constraints here
         player_info = pd.read_csv(player_csv)
         team_info = pd.read_csv(team_csv)
         teams = {}
