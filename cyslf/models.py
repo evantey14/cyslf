@@ -12,7 +12,13 @@ from .utils import (
     MID_TIER_SKILLS,
     TOP_TIER_SKILLS,
 )
-from .validation import validate_days, validate_ints, validate_locations, validate_strs
+from .validation import (
+    validate_bools,
+    validate_days,
+    validate_ints,
+    validate_locations,
+    validate_strs,
+)
 
 
 @dataclass(frozen=True)
@@ -65,6 +71,7 @@ class Player:
         """Validate player data."""
         validate_strs(self)
         validate_ints(self)
+        validate_bools(self)
         validate_days(self)
         validate_locations(self)
 

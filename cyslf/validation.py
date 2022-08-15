@@ -59,6 +59,17 @@ def validate_days(player: "Player"):
             )
 
 
+def validate_bools(player: "Player"):
+    for key in ["frozen"]:
+        value = player.__getattribute__(key)
+        if not isinstance(player.frozen, bool):
+            raise ValueError(
+                f"Failed to create player {player.first_name} {player.last_name}. Expected a "
+                f"bool but found {key}={value} ({type(value)}) instead. Please correct this in "
+                "the input csv and retry"
+            )
+
+
 def validate_locations(player: "Player"):
     valid_locations = set()
     for region, fields in FIELD_MAP.items():
