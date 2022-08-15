@@ -249,7 +249,8 @@ def _merge_data(existing_players, parent_reqs, registrations):
         "preferred_locations",
         "disallowed_locations",
         "teammate_requests",
-        "frozen",
+        "lock",
+        "emailed_parents",
         "school",
         "comment",
     ]
@@ -258,10 +259,12 @@ def _merge_data(existing_players, parent_reqs, registrations):
     )
     players["id"] = players.index.values
 
-    # Freeze players to a team if they already have one
-    players["frozen"] = True
+    # Lock players to a team if they already have one
+    players["lock"] = True
     missing_team = pd.isnull(players.team)
-    players.loc[missing_team, "frozen"] = False
+    players.loc[missing_team, "lock"] = False
+
+    players["emailed_parents"] = False
 
     # Fill missing columns with nans
     for col in ordered_columns:

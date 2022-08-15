@@ -36,7 +36,8 @@ class Player:
     disallowed_locations: str
     preferred_locations: str
     teammate_requests: str
-    frozen: bool
+    lock: bool
+    emailed_parents: bool
     school: str
     comment: str
 

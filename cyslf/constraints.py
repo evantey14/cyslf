@@ -9,7 +9,7 @@ def breaks_constraints(moves: List["Move"]) -> bool:
     for move in moves:
         if breaks_practice_constraint(move):
             return True
-        if move.player.frozen:
+        if move.player.lock:
             return True
     return False
 

@@ -17,7 +17,8 @@ example_player = Player(
     disallowed_locations="Danehy",
     preferred_locations="Ahern,Donnelly",
     teammate_requests="Lionel Messi",
-    frozen=True,
+    lock=True,
+    emailed_parents=True,
     school="school",
     comment=pd.NA,
 )

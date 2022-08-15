@@ -60,14 +60,21 @@ def validate_days(player: "Player"):
 
 
 def validate_bools(player: "Player"):
-    for key in ["frozen"]:
+    for key in ["lock", "emailed_parents"]:
         value = player.__getattribute__(key)
-        if not isinstance(player.frozen, bool):
+        if not isinstance(value, bool):
             raise ValueError(
                 f"Failed to create player {player.first_name} {player.last_name}. Expected a "
                 f"bool but found {key}={value} ({type(value)}) instead. Please correct this in "
                 "the input csv and retry"
             )
+    if player.emailed_parents and not player.lock:
+        raise ValueError(
+            f"Failed to create player {player.first_name} {player.last_name}. emailed_parents was "
+            "set to True while lock was set to False. If parents have already been emailed, the "
+            "player should be locked to their teams. Please correct this in the input csv and "
+            "retry"
+        )
 
 
 def validate_locations(player: "Player"):
