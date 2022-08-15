@@ -17,7 +17,13 @@ CompositeScorer is the primary exported scorer -- it goes scores everything in S
 
 from typing import TYPE_CHECKING, Dict, List, Optional
 
-from ..utils import ELITE_PLAYER_SKILL_LEVEL, GOALIE_THRESHOLD
+from ..utils import (
+    BOTTOM_TIER_SKILLS,
+    FIRST_ROUND_SKILL,
+    GOALIE_THRESHOLD,
+    MID_TIER_SKILLS,
+    TOP_TIER_SKILLS,
+)
 from .base import CountParityScorer, CountScorer, MeanParityScorer
 
 
@@ -65,9 +71,24 @@ class SizeScorer(CountParityScorer):
         return True
 
 
-class EliteScorer(CountParityScorer):
+class FirstRoundScorer(CountParityScorer):
     def _count_player(self, player: "Player") -> bool:
-        return player.skill == ELITE_PLAYER_SKILL_LEVEL
+        return player.skill == FIRST_ROUND_SKILL
+
+
+class TopTierScorer(CountParityScorer):
+    def _count_player(self, player: "Player") -> bool:
+        return player.skill in TOP_TIER_SKILLS
+
+
+class MidTierScorer(CountParityScorer):
+    def _count_player(self, player: "Player") -> bool:
+        return player.skill in MID_TIER_SKILLS
+
+
+class BottomTierScorer(CountParityScorer):
+    def _count_player(self, player: "Player") -> bool:
+        return player.skill in BOTTOM_TIER_SKILLS
 
 
 class GoalieScorer(CountParityScorer):
@@ -91,8 +112,11 @@ SCORER_MAP = {
     "size": SizeScorer,
     "location": LocationScorer,
     "practice_day": PracticeDayScorer,
-    "elite": EliteScorer,
     "teammate": TeammateScorer,
+    "first_round": FirstRoundScorer,
+    "top": TopTierScorer,
+    "mid": MidTierScorer,
+    "bottom": BottomTierScorer,
     "goalie": GoalieScorer,
 }
 
@@ -102,7 +126,10 @@ DEFAULT_WEIGHTS = {
     "size": 0.15,
     "location": 0.05,
     "practice_day": 0.05,
-    "elite": 0.15,
+    "first_round": 0.15,
+    "top": 0.1,
+    "mid": 0.1,
+    "bottom": 0.1,
     "teammate": 0.1,
     "goalie": 0.1,
 }

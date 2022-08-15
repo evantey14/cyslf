@@ -5,7 +5,13 @@ import pandas as pd
 
 from .constraints import breaks_practice_constraint
 from .scorers import CompositeScorer
-from .utils import ELITE_PLAYER_SKILL_LEVEL, GOALIE_THRESHOLD
+from .utils import (
+    BOTTOM_TIER_SKILLS,
+    FIRST_ROUND_SKILL,
+    GOALIE_THRESHOLD,
+    MID_TIER_SKILLS,
+    TOP_TIER_SKILLS,
+)
 
 
 @dataclass(frozen=True)
@@ -84,8 +90,17 @@ class Team:
             return 0
         return sum([player.grade for player in self.players]) / len(self.players)
 
-    def get_elite_player_count(self) -> int:
-        return [p.skill for p in self.players].count(ELITE_PLAYER_SKILL_LEVEL)
+    def get_first_round(self) -> int:
+        return sum([p.skill == FIRST_ROUND_SKILL for p in self.players])
+
+    def get_top_tier(self) -> int:
+        return sum([p.skill in TOP_TIER_SKILLS for p in self.players])
+
+    def get_mid_tier(self) -> int:
+        return sum([p.skill in MID_TIER_SKILLS for p in self.players])
+
+    def get_bottom_tier(self) -> int:
+        return sum([p.skill in BOTTOM_TIER_SKILLS for p in self.players])
 
     def get_goalies(self) -> int:
         return sum([p.goalie_skill <= GOALIE_THRESHOLD for p in self.players])
@@ -179,13 +194,16 @@ class League:
         for team in self.teams:
             team_info_dict = {
                 "name": team.name,
-                "practice_day": team.practice_day,
+                "day": team.practice_day,
                 "location": team.location,
                 "size": len(team.players),
-                "first_round_picks": team.get_elite_player_count(),
+                "first_round": team.get_first_round(),
+                "top_tier": team.get_top_tier(),
+                "mid_tier": team.get_mid_tier(),
+                "bottom_tier": team.get_bottom_tier(),
                 "goalies": team.get_goalies(),
-                "mean_skill": team.get_skill(),
-                "mean_grade": team.get_grade(),
+                "skill": team.get_skill(),
+                "grade": team.get_grade(),
             }
 
             team_info_dicts.append(team_info_dict)
