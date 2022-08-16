@@ -97,13 +97,16 @@ More optimal algorithms exist, but this algorithm is one of the most straightfor
 The score of a particular arrangement of players is composed of a bunch of independent scores. The independent scores are combined with a weighted sum. These weights can be controlled by passing a config file to `make-teams` (eg `make-teams -c weights.cfg ...`). Example weights file (put in `weights.cfg`):
 ```
 [weights]
-skill = 10          # balance average team skill
-grade = 10          # balance average team grade
-size = 10           # balance average team size
-elite = 10          # balance # of top tier players
-goalie = 10         # balance goalie skill
-location = 10       # minimize player distance to practice field
-practice_day = 10   # maximize # of players' practicing on their preferred day
-teammate = 10       # honor player teammate requests
+skill = 1           # balance average team skill
+grade = 1           # balance average team grade
+size = 1            # balance average team size
+first_round = 1     # balance # of top rank players (skill=1)
+top = 1             # balance the # of top tier players (skill=2, 3)
+mid = 1             # balance the # of mid tier players (skill=4, 5, 6)
+bottom = 1          # balance the # of bottom tier players (skill=7, 8, 9, 10)
+goalie = 1          # balance goalie skill
+location = 1        # minimize player distance to practice field
+practice_day = 1    # maximize # of players' practicing on their preferred day
+teammate = 1        # honor player teammate requests
 ```
 If you run formation and teams aren't as good as you'd like for some score type, try increasing the weight. (For example if you really really care about giving players a nearby practice field, you could set `location = 1000`).
