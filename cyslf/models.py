@@ -195,7 +195,7 @@ class League:
 
     def details(self) -> None:
         for key, scorer in self.scorer.scorers.items():
-            print(f"{key:12}: {scorer.get_score():.4f}")
+            print(f"{key:12}: {scorer.get_score():.3f}")
 
         team_info_dicts = []
         for team in self.teams:
