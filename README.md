@@ -11,7 +11,7 @@ Returning players are placed on their last season's team by default, then the re
 #### 1. Install `cyslf` by running `pip install cyslf`
 #### 2. Prepare a standard player csv from registration data. Example:
 ```
-prepare-player-data --div "Boys Grades 3-4" --old_reg  old-registrations.csv --reg registrations.csv --par parent-requests.csv -o example
+prepare-player-data --div "Boys Grades 3-4" --old_reg  old-registrations.csv --reg registrations.csv --par parent-requests.csv -o example-players.csv
 ```
 * This command takes raw form data and converts it into the standard player csv format (see example data below). It does a handful of things to clean up the data.
     * Players on teams from the prior season will be placed on those teams by default.
@@ -26,19 +26,21 @@ prepare-player-data --div "Boys Grades 3-4" --old_reg  old-registrations.csv --r
 * `--old_reg`  sets the past data csv. This needs to have names, coach evaluations, and teams for each player.
 * `--par` sets the parent request csv. This should have practice location / day / teammate preferences.
 * `--reg` sets the current registration csv. This should have all other player-relevant data.
-* `-o` sets the output file prefix. `example` means this will write to `example-players.csv`
+* `-o` sets the output file.
 #### 3. Prepare a standard team csv
 * These should have team name, practice day, and practice location (see example data below)
 #### 4. Make teams! Example:
 ```
-make-teams -i example -o example-result
+make-teams -i example-players.csv -t example-team.csv -o example-result.csv
 ```
 * This command reads the player and team csvs, assigns available players, and outputs the results as standard player and team csvs.
-* `-i` sets the input file prefixes. `example` means read `example-players.csv` and `example-teams.csv`
-* `-o` sets the output file prefixes. `example-result` means write to `example-result-players.csv` and `example-result-teams.csv`
+* `-i` sets the input player file.
+* `-t` sets the team information file.
+* `-o` sets the output player file.
 * `-c` can optionally be used to set a config file to control scoring weights (see below).
 * `-d` can optionally be used to set the search depth. This is how hard the algorithm tries to
   rearrange players. 4 or 5 will probably take too long to run, 2 or 3 are probably good enough.
+* `-r` can be used to replace the output file when it already exists.
 #### 5. Review!
 * Load the player csv and see if any adjustments need to be made.
 * If you want to re-run league formation, unfreeze players and remove their team values, download and run step 4 again.
@@ -95,13 +97,16 @@ More optimal algorithms exist, but this algorithm is one of the most straightfor
 The score of a particular arrangement of players is composed of a bunch of independent scores. The independent scores are combined with a weighted sum. These weights can be controlled by passing a config file to `make-teams` (eg `make-teams -c weights.cfg ...`). Example weights file (put in `weights.cfg`):
 ```
 [weights]
-skill = 10          # balance average team skill
-grade = 10          # balance average team grade
-size = 10           # balance average team size
-elite = 10          # balance # of top tier players
-goalie = 10         # balance goalie skill
-location = 10       # minimize player distance to practice field
-practice_day = 10   # maximize # of players' practicing on their preferred day
-teammate = 10       # honor player teammate requests
+skill = 1           # balance average team skill
+grade = 1           # balance average team grade
+size = 1            # balance average team size
+first_round = 1     # balance # of top rank players (skill=1)
+top = 1             # balance the # of top tier players (skill=2, 3)
+mid = 1             # balance the # of mid tier players (skill=4, 5, 6)
+bottom = 1          # balance the # of bottom tier players (skill=7, 8, 9, 10)
+goalie = 1          # balance goalie skill
+location = 1        # minimize player distance to practice field
+practice_day = 1    # maximize # of players' practicing on their preferred day
+teammate = 1        # honor player teammate requests
 ```
 If you run formation and teams aren't as good as you'd like for some score type, try increasing the weight. (For example if you really really care about giving players a nearby practice field, you could set `location = 1000`).

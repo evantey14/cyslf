@@ -2,3 +2,4 @@
 .python-version
 .tox/
 dist/
+.DS_Store

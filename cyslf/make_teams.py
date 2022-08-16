@@ -1,42 +1,65 @@
 import argparse
 import configparser
+import os
+import sys
 
 from tqdm import tqdm
 
 from cyslf.models import League
 from cyslf.optimize import find_best_moves
 from cyslf.scorers import DEFAULT_WEIGHTS
+from cyslf.validation import validate_file
 
 
 parser = argparse.ArgumentParser(description="Assign players to teams")
 parser.add_argument(
-    "--input_stem",
+    "--input_player_csv",
     "-i",
     type=str,
-    help="input csv stem. read '{stem}-players.csv' and '{stem}-teams.csv'",
+    help="input player csv. eg 'boys34-players.csv'",
 )
 parser.add_argument(
-    "--output_stem",
+    "--output_player_csv",
     "-o",
     type=str,
-    help="output csv stem. write outputs to '{stem}-players.csv' and '{stem}-teams.csv'",
+    help="output player csv. eg 'boys34-results.csv'",
+)
+parser.add_argument(
+    "--team_csv",
+    "-t",
+    type=str,
+    help="team csv. should contain team information (name, location, etc)",
 )
 parser.add_argument("--config", "-c", type=str, help="config file with scorer weights.")
 parser.add_argument("--depth", "-d", type=int, default=2, help="search depth")
+parser.add_argument(
+    "--replace",
+    "-r",
+    action="store_true",
+    help="Overwrite the output file if it exists",
+)
 
 
 def main():
     args = parser.parse_args()
 
-    player_input_file = f"{args.input_stem}-players.csv"
-    team_input_file = f"{args.input_stem}-teams.csv"
+    validate_file(args.input_player_csv)
+    validate_file(args.team_csv)
+
+    if not args.replace and os.path.exists(args.output_player_csv):
+        print(
+            f"Warning: {args.output_player_csv} already exists. Use `-r` to replace it"
+        )
+        sys.exit()
+
     print(
-        f"Loading league from {player_input_file} (players) and {team_input_file} (teams)"
+        f"Loading league from {args.input_player_csv} (players) and {args.team_csv} (teams)"
     )
-    league = League.from_csvs(player_input_file, team_input_file)
+    league = League.from_csvs(args.input_player_csv, args.team_csv)
 
     weights = None
     if args.config is not None:
+        validate_file(args.config)
         config = configparser.ConfigParser(inline_comment_prefixes="#")
         config.read(args.config)
         weights = {}
@@ -53,11 +76,7 @@ def main():
         league.apply_moves(best_moves)
     league.details()
 
-    # TODO: add override check
-    player_output_file = f"{args.output_stem}-players.csv"
-    team_output_file = f"{args.output_stem}-teams.csv"
-
-    league.to_csvs(player_output_file, team_output_file)
+    league.to_csv(args.output_player_csv)
 
 
 if __name__ == "__main__":

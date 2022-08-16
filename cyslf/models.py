@@ -5,7 +5,23 @@ import pandas as pd
 
 from .constraints import breaks_practice_constraint
 from .scorers import CompositeScorer
-from .utils import ELITE_PLAYER_SKILL_LEVEL, GOALIE_THRESHOLD
+from .utils import (
+    BOTTOM_TIER_SKILLS,
+    FIRST_ROUND_SKILL,
+    GOALIE_THRESHOLD,
+    MID_TIER_SKILLS,
+    TOP_TIER_SKILLS,
+)
+from .validation import (
+    validate_player_bools,
+    validate_player_days,
+    validate_player_ints,
+    validate_player_locations,
+    validate_player_strs,
+    validate_team_day,
+    validate_team_location,
+    validate_team_name,
+)
 
 
 @dataclass(frozen=True)
@@ -23,7 +39,8 @@ class Player:
     disallowed_locations: str
     preferred_locations: str
     teammate_requests: str
-    frozen: bool
+    lock: bool
+    emailed_parents: bool
     school: str
     comment: str
 
@@ -56,14 +73,11 @@ class Player:
 
     def __post_init__(self):
         """Validate player data."""
-        for day in self.unavailable_days:
-            if day in self.preferred_days:
-                raise ValueError(
-                    f"Failed to create player {self.first_name} {self.last_name} ({self.id}) "
-                    f"due to invalid day preferences: {day} was marked as both unavailable "
-                    f"({self.unavailable_days}) and preferred ({self.preferred_days}). "
-                    "Please correct this in the csv and retry."
-                )
+        validate_player_strs(self)
+        validate_player_ints(self)
+        validate_player_bools(self)
+        validate_player_days(self)
+        validate_player_locations(self)
 
 
 @dataclass
@@ -84,8 +98,17 @@ class Team:
             return 0
         return sum([player.grade for player in self.players]) / len(self.players)
 
-    def get_elite_player_count(self) -> int:
-        return [p.skill for p in self.players].count(ELITE_PLAYER_SKILL_LEVEL)
+    def get_first_round(self) -> int:
+        return sum([p.skill == FIRST_ROUND_SKILL for p in self.players])
+
+    def get_top_tier(self) -> int:
+        return sum([p.skill in TOP_TIER_SKILLS for p in self.players])
+
+    def get_mid_tier(self) -> int:
+        return sum([p.skill in MID_TIER_SKILLS for p in self.players])
+
+    def get_bottom_tier(self) -> int:
+        return sum([p.skill in BOTTOM_TIER_SKILLS for p in self.players])
 
     def get_goalies(self) -> int:
         return sum([p.goalie_skill <= GOALIE_THRESHOLD for p in self.players])
@@ -99,6 +122,11 @@ class Team:
             f"grade={self.get_grade():.2f})"
         )
 
+    def __post_init__(self):
+        validate_team_name(self)
+        validate_team_day(self)
+        validate_team_location(self)
+
 
 @dataclass(frozen=True)
 class Move:
@@ -107,13 +135,6 @@ class Move:
     player: Player
     team_from: Optional[Team] = None
     team_to: Optional[Team] = None
-
-    def __repr__(self):
-        return (
-            f"Move {self.player}\n"
-            f"\t from: {self.team_from}\n"
-            f"\t   to: {self.team_to}\n"
-        )
 
 
 @dataclass
@@ -132,6 +153,7 @@ class League:
         )
 
     def get_next_player(self) -> Player:
+        """Gets the next highest-skilled available player for assignment."""
         return min(self.available_players, key=lambda p: p.skill)
 
     def add_player(self, player: Player, team: Team):
@@ -172,33 +194,32 @@ class League:
                 self.apply_moves([Move(player=player, team_from=team, team_to=None)])
 
     def details(self) -> None:
-        score_info = {}
         for key, scorer in self.scorer.scorers.items():
-            score_info[f"{key}_score"] = scorer.get_score()
-        with pd.option_context("display.precision", 4):
-            print(pd.DataFrame([score_info]))
+            print(f"{key:12}: {scorer.get_score():.3f}")
 
         team_info_dicts = []
         for team in self.teams:
             team_info_dict = {
                 "name": team.name,
-                "practice_day": team.practice_day,
+                "day": team.practice_day,
                 "location": team.location,
                 "size": len(team.players),
-                "first_round_picks": team.get_elite_player_count(),
+                "first_round": team.get_first_round(),
+                "top_tier": team.get_top_tier(),
+                "mid_tier": team.get_mid_tier(),
+                "bottom_tier": team.get_bottom_tier(),
                 "goalies": team.get_goalies(),
-                "mean_skill": team.get_skill(),
-                "mean_grade": team.get_grade(),
+                "skill": team.get_skill(),
+                "grade": team.get_grade(),
             }
 
             team_info_dicts.append(team_info_dict)
         team_info_df = pd.DataFrame.from_records(team_info_dicts)
         with pd.option_context("display.precision", 3):
-            print(team_info_df)
+            print(team_info_df.sort_values(by="name"))
 
     @classmethod
     def from_csvs(cls, player_csv: str, team_csv: str) -> "League":
-        # TODO: check constraints here
         player_info = pd.read_csv(player_csv)
         team_info = pd.read_csv(team_csv)
         teams = {}
@@ -220,18 +241,26 @@ class League:
         # Now go and move them to their teams
         for player, team_name in zip(players, assigned_team_names):
             if not pd.isnull(team_name):
+                if team_name not in teams:
+                    raise ValueError(
+                        f"Failed to add {player.first_name} {player.last_name} to Team "
+                        f"{team_name}. This team was not found in the team information: "
+                        f"{list(teams.keys())}. Please check your spelling, correct this in the "
+                        "csv and retry."
+                    )
                 move = Move(player=player, team_from=None, team_to=teams[team_name])
                 if breaks_practice_constraint(move):
                     raise ValueError(
-                        f"Failed to add {player} to Team {team_name}. The team's practice day "
-                        f"({teams[team_name].practice_day}) is in the players unavailable days "
-                        f"({player.unavailable_days}). Please correct this in the csv and retry."
+                        f"Failed to add {player.first_name} {player.last_name} to Team "
+                        f"{team_name}. This player's practice info is incompatible with the team's "
+                        f"practice info:\n{player}\n{teams[team_name]}.\nTry checking the practice "
+                        "day and location before correcting this in the input csv and retrying."
                     )
                 league.apply_moves([move])
 
         return league
 
-    def to_csvs(self, player_csv: str, team_csv: str) -> None:
+    def to_csv(self, player_csv: str) -> None:
         teams = []
         players = []
         for team in self.teams:
@@ -246,9 +275,6 @@ class League:
 
         print(f"Saving player information to {player_csv}")
         pd.DataFrame.from_records(players).to_csv(player_csv, index=False)
-
-        print(f"Saving team information to {team_csv}")
-        pd.DataFrame.from_records(teams).to_csv(team_csv, index=False)
 
     def __repr__(self):
         s = f"{len(self.teams)} Teams:\n"

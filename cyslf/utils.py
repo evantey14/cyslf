@@ -1,5 +1,8 @@
-# Best possible skill rating
-ELITE_PLAYER_SKILL_LEVEL = 1
+# Skill rating divisions
+FIRST_ROUND_SKILL = 1
+TOP_TIER_SKILLS = [2, 3]
+MID_TIER_SKILLS = [4, 5, 6]
+BOTTOM_TIER_SKILLS = [7, 8, 9, 10]
 
 DAY_MAP = {
     "Monday": "M",

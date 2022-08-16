@@ -47,4 +47,10 @@ def find_best_moves(
                 queue.append(
                     [*proposed_moves, Move(player=p, team_from=last_team, team_to=t)]
                 )
+    if len(best_moves) == 0:
+        raise RuntimeError(
+            f"Failed to place Player {player.first_name} {player.last_name} on a team. This is "
+            "likely due to unsatisfiable scheduling constraints. Please try manually assigning "
+            "this player before retrying."
+        )
     return best_moves
