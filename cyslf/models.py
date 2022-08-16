@@ -260,7 +260,7 @@ class League:
 
         return league
 
-    def to_csvs(self, player_csv: str, team_csv: str) -> None:
+    def to_csv(self, player_csv: str) -> None:
         teams = []
         players = []
         for team in self.teams:
@@ -275,9 +275,6 @@ class League:
 
         print(f"Saving player information to {player_csv}")
         pd.DataFrame.from_records(players).to_csv(player_csv, index=False)
-
-        print(f"Saving team information to {team_csv}")
-        pd.DataFrame.from_records(teams).to_csv(team_csv, index=False)
 
     def __repr__(self):
         s = f"{len(self.teams)} Teams:\n"

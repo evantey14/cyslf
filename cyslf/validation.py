@@ -1,3 +1,4 @@
+import os
 from typing import TYPE_CHECKING
 
 from .utils import DAY_MAP, FIELD_MAP
@@ -136,4 +137,12 @@ def validate_team_location(team: "Team"):
             f"Failed to create team {team.name}. Location {team.location} is not in the valid "
             f"location list: {valid_locations}. Please check spelling, correct the input csv and "
             "retry"
+        )
+
+
+def validate_file(filename: str):
+    if not os.path.exists(filename):
+        raise FileNotFoundError(
+            f"Could not find file: {filename}. Please check that you spelled the file name "
+            "correctly and are running the command from the correct directory."
         )

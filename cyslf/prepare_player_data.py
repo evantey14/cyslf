@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 from cyslf.utils import DAY_MAP, FIELD_MAP
+from cyslf.validation import validate_file
 
 
 pd.set_option("display.max_rows", None)
@@ -35,10 +36,10 @@ parser.add_argument(
     "--registration", "--reg", type=str, help="Current registration csv."
 )
 parser.add_argument(
-    "--output_stem",
+    "--output_file",
     "-o",
     type=str,
-    help="output csv stem. write outputs to '{stem}-players.csv'",
+    help="output csv file. eg 'b34-players.csv'",
 )
 
 
@@ -343,6 +344,9 @@ def _validate_players(players):
 
 def main():
     args = parser.parse_args()
+    validate_file(args.old_registration)
+    validate_file(args.parent_requets)
+    validate_file(args.registration)
 
     # Pull team and coach score from spring 2022
     existing_players = _load_existing_player_data(args.old_registration, args.division)
@@ -360,9 +364,8 @@ def main():
     _validate_players(players)
 
     print("=====")
-    player_outfile = f"{args.output_stem}-players.csv"
-    print(f"Saving to {player_outfile}")
-    players.to_csv(player_outfile, index=False)
+    print(f"Saving to {args.output_file}")
+    players.to_csv(args.output_file, index=False)
 
     print(
         "All done! Please load into Excel/Google Sheets and read through any comments making "
