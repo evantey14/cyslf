@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 from cyslf.utils import DAY_MAP, FIELD_MAP
-from cyslf.validation import validate_file
+from cyslf.validation import request_validation, validate_file
 
 
 pd.set_option("display.max_rows", None)
@@ -53,6 +53,10 @@ def _normalize_str(column):
     return column.str.lower().str.replace("[^a-zA-Z]", "", regex=True)
 
 
+def _print_names(df):
+    print(", ".join(df[["first_name", "last_name"]].agg(" ".join, axis=1)))
+
+
 def _load_existing_player_data(filename: str, division: str):
     print("=====")
     print(f"Reading {filename}")
@@ -61,6 +65,11 @@ def _load_existing_player_data(filename: str, division: str):
     # This is because a Spring 2nd-grader on Red shouldn't stay on Red, but
     # we do want to know their skill score.
     in_division = existing_players_raw["Division"].str.contains(division)
+    if in_division.sum() == 0:
+        request_validation(
+            f"WARNING: Found 0 players with matching division {division}. Please check that "
+            "you spelled it correctly"
+        )
     existing_players_raw.loc[~in_division, "Assigned Team"] = np.nan
 
     column_map = {
@@ -101,7 +110,6 @@ def _load_existing_player_data(filename: str, division: str):
 
     print(f"Loaded {len(existing_players)} existing players for skill/team lookup.")
     print(f"{in_division.sum()} were found in division: {division}")
-    print(existing_players.head())
     print("=====")
     return existing_players
 
@@ -120,7 +128,6 @@ def _extract_locations(locations_str):
 def _load_parent_requests(filename):
     print(f"Reading {filename}")
     parent_reqs = pd.read_csv(filename)
-    parent_reqs.head()
     column_map = {
         "Player First Name": "first_name",
         "Player Last Name": "last_name",
@@ -160,12 +167,10 @@ def _load_parent_requests(filename):
     parent_reqs = parent_reqs.drop(
         columns=["first_name", "last_name", "teammate_req1", "teammate_req2"]
     )
-    parent_reqs.head()
 
     print(
         f"Loaded {len(parent_reqs)} practice day, practice location, and teammate requests"
     )
-    print(parent_reqs.head())
     print("=====")
     return parent_reqs
 
@@ -204,7 +209,6 @@ def _load_registration_data(filename):
     registrations["name_key"] = _normalize_str(full_name)
 
     print(f"Found {len(registrations)} registrations")
-    print(registrations.head())
     print("=====")
     return registrations
 
@@ -219,22 +223,16 @@ def _merge_data(existing_players, parent_reqs, registrations):
         "existing player data."
     )
     print("The following players were NOT matched:")
-    print(
-        registrations[~existing_player_match][["first_name", "last_name"]].agg(
-            " ".join, axis=1
-        )
-    )
+    _print_names(registrations[~existing_player_match])
+    print()
 
     parent_req_match = registrations["name_key"].isin(parent_reqs["name_key"])
     print(
         f"{parent_req_match.sum()} out of {len(registrations)} players had matching parent requests"
     )
     print("The following players were NOT matched:")
-    print(
-        registrations[~parent_req_match][["first_name", "last_name"]].agg(
-            " ".join, axis=1
-        )
-    )
+    _print_names(registrations[~parent_req_match])
+    print()
 
     ordered_columns = [
         "id",
@@ -324,11 +322,7 @@ def _validate_players(players):
             f"{missing_skill.sum()} players don't have a coach or parent skill. We'll automatically"
             " assign them a skill of 5."
         )
-        print(
-            players[missing_skill][
-                ["id", "first_name", "last_name", "coach_skill", "parent_skill"]
-            ]
-        )
+        _print_names(players[missing_skill])
         print()
 
         players.loc[missing_skill, "parent_skill"] = 5
@@ -345,7 +339,7 @@ def _validate_players(players):
 def main():
     args = parser.parse_args()
     validate_file(args.old_registration)
-    validate_file(args.parent_requets)
+    validate_file(args.parent_requests)
     validate_file(args.registration)
 
     # Pull team and coach score from spring 2022

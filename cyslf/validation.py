@@ -146,3 +146,8 @@ def validate_file(filename: str):
             f"Could not find file: {filename}. Please check that you spelled the file name "
             "correctly and are running the command from the correct directory."
         )
+
+
+def request_validation(message: str):
+    print(message)
+    _ = input("Press Enter to continue, or ctrl+c to quit:")
