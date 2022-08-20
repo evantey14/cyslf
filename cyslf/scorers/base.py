@@ -1,8 +1,14 @@
+from math import tanh
 from typing import TYPE_CHECKING, List
 
 
 if TYPE_CHECKING:
     from .models import Player, Team
+
+
+def _normalize(x: float) -> float:
+    # Force a number to be between 0 and 1
+    return 1 - tanh(x)
 
 
 class CountScorer:
@@ -47,9 +53,11 @@ def _update_rolling_mean(old_mean, old_size, value, add_value):
 class CountParityScorer:
     def __init__(self, players: List["Player"], teams: List["Team"]):
         self.total_player_count = 0
-        for t in teams:
-            self.total_player_count += sum([self._count_player(p) for p in t.players])
         self.team_counts = {team.name: 0 for team in teams}
+        for t in teams:
+            team_count = sum([self._count_player(p) for p in t.players])
+            self.total_player_count += team_count
+            self.team_counts[t.name] += team_count
 
     def _count_player(self, player: "Player") -> bool:
         raise NotImplementedError
@@ -67,16 +75,18 @@ class CountParityScorer:
     def get_score(self) -> float:
         ideal_team_count = self.total_player_count / len(self.team_counts)
         rmse = _calculate_rmse(self.team_counts.values(), ideal_team_count)
-        return max(0, 1 - rmse)
+        return _normalize(rmse)
 
 
 class MeanParityScorer:
     def __init__(self, players: List["Player"], teams: List["Team"]):
         self.total_value = 0
-        for t in teams:
-            self.total_value += sum([self._get_value(p) for p in t.players])
-        self.total_players = sum([len(t.players) for t in teams])
         self.team_means = {team.name: 0.0 for team in teams}
+        for t in teams:
+            team_mean = sum([self._get_value(p) for p in t.players])
+            self.total_value += team_mean
+            self.team_means[t.name] += team_mean
+        self.total_players = sum([len(t.players) for t in teams])
 
     def _get_value(self, player: "Player") -> bool:
         raise NotImplementedError
@@ -104,4 +114,4 @@ class MeanParityScorer:
     def get_score(self) -> float:
         ideal_value = self.total_value / self.total_players
         rmse = _calculate_rmse(self.team_means.values(), ideal_value)
-        return max(0, 1 - rmse)
+        return _normalize(rmse)

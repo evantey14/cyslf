@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cyslf"
-version = "0.1.4"
+version = "0.2.1"
 description = "CYS League Formation"
 authors = ["Evan Tey <evantey14@gmail.com>"]
 license = "MIT"
