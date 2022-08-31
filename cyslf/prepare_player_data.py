@@ -1,4 +1,5 @@
 import argparse
+import os
 
 import numpy as np
 import pandas as pd
@@ -47,6 +48,12 @@ parser.add_argument(
     "-o",
     type=str,
     help="output csv file. eg 'b34-players.csv'",
+)
+parser.add_argument(
+    "--replace",
+    "-r",
+    action="store_true",
+    help="Overwrite the output file if it exists",
 )
 
 
@@ -378,13 +385,11 @@ def main():
     # Do a final cleaning pass
     _final_sweep(players)
 
-    print(f"Saving to {args.output_file}")
-    players.to_csv(args.output_file, index=False)
-
-    print(
-        "All done! Please load into Excel/Google Sheets and read through any comments making "
-        "adjustments to cells as necessary."
-    )
+    if args.replace or not os.path.exists(args.output_file):
+        print(f"Saving to {args.output_file}")
+        players.to_csv(args.output_file, index=False)
+    else:
+        print(f"Not saving. {args.output_file} already exists. Use -r to replace")
 
 
 if __name__ == "__main__":
