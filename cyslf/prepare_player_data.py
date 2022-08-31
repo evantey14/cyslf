@@ -134,6 +134,7 @@ def _load_parent_requests(filename):
         "Disallowed Practice Location(s)": "disallowed_locations",
         "Teammate Request 1": "teammate_req1",
         "Teammate Request 2": "teammate_req2",
+        "I am willing to ": "extra_comment",
     }
     parent_reqs = parent_reqs.rename(columns=column_map)[column_map.values()]
 
@@ -238,6 +239,10 @@ def _merge_data(existing_players, parent_reqs, registrations):
     print(f"{(~missing_team).sum()} players locked onto their teams from last season")
 
     players["emailed_parents"] = False
+
+    players["comment"] = (
+        players["comment"].fillna("") + " || " + players["extra_comment"].fillna("")
+    )
 
     # Fill missing columns with nans
     for col in ordered_columns:
