@@ -181,7 +181,8 @@ def _load_parent_requests(filename):
         columns=["first_name", "last_name", "teammate_req1", "teammate_req2"]
     )
 
-    return parent_reqs
+    # Keep most recent entry
+    return parent_reqs.drop_duplicates("name_key", keep="last")
 
 
 def _load_registration_data(filename):
