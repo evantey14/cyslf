@@ -18,6 +18,7 @@ prepare-player-data --div "Boys Grades 3-4" --old_reg  old-registrations.csv --r
     * Players without skill are assigned a level of 5 (average)
     * Players without a goalie skill are assigned a level of 6 (does not play goalie)
     * Players coming from a lower division get their grades worsened by 1 point
+    * Players are matched by names -- so if names are spelled differently on different forms, they won't get matched, so we'll print names that look similar and maybe should've been matched.
 * After completion, open the csv and manually make adjustments.
     * Read the comments -- maybe parents are unable to reach certain fields
     * If you do edit cells, make sure the formatting is consistent. `Danehy` is not the same as
@@ -26,7 +27,9 @@ prepare-player-data --div "Boys Grades 3-4" --old_reg  old-registrations.csv --r
 * `--old_reg`  sets the past data csv. This needs to have names, coach evaluations, and teams for each player.
 * `--par` sets the parent request csv. This should have practice location / day / teammate preferences.
 * `--reg` sets the current registration csv. This should have all other player-relevant data.
+* `-m` sets the number of potential name matches to print. Default is `-m 5`.
 * `-o` sets the output file.
+* `-r` lets you replace the output file if it exists.
 #### 3. Prepare a standard team csv
 * These should have team name, practice day, and practice location (see example data below)
 #### 4. Make teams! Example:
