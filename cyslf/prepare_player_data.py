@@ -1,7 +1,9 @@
 import argparse
+import os
 
 import numpy as np
 import pandas as pd
+from thefuzz import fuzz
 
 from cyslf.utils import DAY_MAP, FIELD_MAP
 from cyslf.validation import request_validation, validate_file
@@ -31,9 +33,15 @@ parser.add_argument(
     type=str,
     help="Parent request form (practice preferences / teammate requests)",
 )
-
 parser.add_argument(
     "--registration", "--reg", type=str, help="Current registration csv."
+)
+parser.add_argument(
+    "---matches",
+    "-m",
+    default=5,
+    type=int,
+    help="Number of potential name matches to display",
 )
 parser.add_argument(
     "--output_file",
@@ -41,11 +49,25 @@ parser.add_argument(
     type=str,
     help="output csv file. eg 'b34-players.csv'",
 )
+parser.add_argument(
+    "--replace",
+    "-r",
+    action="store_true",
+    help="Overwrite the output file if it exists",
+)
 
 
-def _extract_num(column, dtype):
+def _extract_num(column, dtype=float):
     """Extract numbers from a string column."""
     return column.str.extract("(\d+)", expand=False).astype(dtype)  # noqa: W605
+
+
+def _extract_grade(column):
+    """Extract the grade number from columns, setting P to -1 and K to 0"""
+    grade = column.fillna("").astype(str).str[0]
+    grade = grade.str.replace("P", "-1", regex=False)
+    grade = grade.str.replace("K", "0", regex=False)
+    return grade.astype(float)  # Allow missing grade for now
 
 
 def _normalize_str(column):
@@ -53,22 +75,22 @@ def _normalize_str(column):
     return column.str.lower().str.replace("[^a-zA-Z]", "", regex=True)
 
 
-def _print_names(df):
-    print(", ".join(df[["first_name", "last_name"]].agg(" ".join, axis=1)))
+def _get_names(df):
+    return ", ".join(df[["first_name", "last_name"]].agg(" ".join, axis=1))
 
 
 def _load_existing_player_data(filename: str, division: str):
-    print("=====")
-    print(f"Reading {filename}")
+    print(f"\n===Reading existing player data from {filename}===")
     existing_players_raw = pd.read_csv(filename)
+    print(f"{len(existing_players_raw)} players found in previous registration data.")
     # Only keep teams if the players were in the relevant division.
     # This is because a Spring 2nd-grader on Red shouldn't stay on Red, but
     # we do want to know their skill score.
     in_division = existing_players_raw["Division"].str.contains(division)
+    print(f"{in_division.sum()} were found in division: {division}")
     if in_division.sum() == 0:
         request_validation(
-            f"WARNING: Found 0 players with matching division {division}. Please check that "
-            "you spelled it correctly"
+            "WARNING: Please confirm that the division is spelled correctly before proceeding"
         )
     existing_players_raw.loc[~in_division, "Assigned Team"] = np.nan
 
@@ -84,18 +106,17 @@ def _load_existing_player_data(filename: str, division: str):
     ]
 
     # Extract coach skill
-    existing_players["coach_skill"] = _extract_num(
-        existing_players["coach_skill"], float
-    )
+    existing_players["coach_skill"] = _extract_num(existing_players["coach_skill"])
     # Players not already in the current division are coming from a younger division. Since they're
     # younger, we'll make their skill one point worse. In the future, maybe we can pick a more
     # principled offset
+    print(
+        "Lowering player skill by 1 for players that weren't previously in this division"
+    )
     existing_players.loc[~in_division, "coach_skill"] += 1
 
     # Extract goalie skill
-    existing_players["goalie_skill"] = _extract_num(
-        existing_players["goalie_skill"], float
-    )
+    existing_players["goalie_skill"] = _extract_num(existing_players["goalie_skill"])
 
     # Construct name for matching to current registration
     full_name = existing_players["first_name"] + existing_players["last_name"]
@@ -108,9 +129,6 @@ def _load_existing_player_data(filename: str, division: str):
         .drop_duplicates("name_key")
     )
 
-    print(f"Loaded {len(existing_players)} existing players for skill/team lookup.")
-    print(f"{in_division.sum()} were found in division: {division}")
-    print("=====")
     return existing_players
 
 
@@ -126,8 +144,9 @@ def _extract_locations(locations_str):
 
 
 def _load_parent_requests(filename):
-    print(f"Reading {filename}")
+    print(f"\n===Reading parent requests from {filename}===")
     parent_reqs = pd.read_csv(filename)
+    print(f"{len(parent_reqs)} parent requests found")
     column_map = {
         "Player First Name": "first_name",
         "Player Last Name": "last_name",
@@ -137,6 +156,7 @@ def _load_parent_requests(filename):
         "Disallowed Practice Location(s)": "disallowed_locations",
         "Teammate Request 1": "teammate_req1",
         "Teammate Request 2": "teammate_req2",
+        "I am willing to ": "extra_comment",
     }
     parent_reqs = parent_reqs.rename(columns=column_map)[column_map.values()]
 
@@ -168,16 +188,12 @@ def _load_parent_requests(filename):
         columns=["first_name", "last_name", "teammate_req1", "teammate_req2"]
     )
 
-    print(
-        f"Loaded {len(parent_reqs)} practice day, practice location, and teammate requests"
-    )
-    print("=====")
-    return parent_reqs
+    # Keep most recent entry
+    return parent_reqs.drop_duplicates("name_key", keep="last")
 
 
 def _load_registration_data(filename):
-    print("=====")
-    print(f"Reading {filename}")
+    print(f"\n===Reading registration data from {filename}===")
     registrations_raw = pd.read_csv(filename)
 
     # Merge the two school columns
@@ -197,42 +213,22 @@ def _load_registration_data(filename):
     registrations = registrations_raw.rename(columns=column_map)[column_map.values()]
 
     # Extract grade
-    # TODO: handle K and PreK grades
-    registrations["grade"] = _extract_num(registrations["grade"], int)
+    registrations["grade"] = _extract_grade(registrations["grade"])
 
     # Extract parent skill (they have opposite order from coach skill, so invert)
-    registrations["parent_skill"] = _extract_num(registrations["parent_skill"], float)
+    registrations["parent_skill"] = _extract_num(registrations["parent_skill"])
     registrations["parent_skill"] = 11 - registrations["parent_skill"]
 
     # Construct name for matching to current registration.
     full_name = registrations["first_name"] + registrations["last_name"]
     registrations["name_key"] = _normalize_str(full_name)
 
-    print(f"Found {len(registrations)} registrations")
-    print("=====")
+    print(f"{len(registrations)} registrations found")
     return registrations
 
 
 def _merge_data(existing_players, parent_reqs, registrations):
-    print("=====")
-    print("Integrating old data, parent requests, and registrations.")
-
-    existing_player_match = registrations["name_key"].isin(existing_players["name_key"])
-    print(
-        f"{existing_player_match.sum()} out of {len(registrations)} players were matched to "
-        "existing player data."
-    )
-    print("The following players were NOT matched:")
-    _print_names(registrations[~existing_player_match])
-    print()
-
-    parent_req_match = registrations["name_key"].isin(parent_reqs["name_key"])
-    print(
-        f"{parent_req_match.sum()} out of {len(registrations)} players had matching parent requests"
-    )
-    print("The following players were NOT matched:")
-    _print_names(registrations[~parent_req_match])
-    print()
+    print("\n===Merging data===")
 
     ordered_columns = [
         "id",
@@ -262,8 +258,13 @@ def _merge_data(existing_players, parent_reqs, registrations):
     players["lock"] = True
     missing_team = pd.isnull(players.team)
     players.loc[missing_team, "lock"] = False
+    print(f"{(~missing_team).sum()} players locked onto their teams from last season")
 
     players["emailed_parents"] = False
+
+    players["comment"] = (
+        players["comment"].fillna("") + " || " + players["extra_comment"].fillna("")
+    )
 
     # Fill missing columns with nans
     for col in ordered_columns:
@@ -272,16 +273,12 @@ def _merge_data(existing_players, parent_reqs, registrations):
 
     players = players[ordered_columns]
 
-    print(
-        f"Finished merging old data into registrations. Total # of players: {len(players)}"
-    )
-    print("=====")
+    print(f"Finished merging. Total # of players: {len(players)}")
     return players
 
 
-def _validate_players(players):
-    print("=====")
-    print("Running verification checks:")
+def _final_sweep(players):
+    print("\n===Running final checks===")
 
     normalized_name = _normalize_str(players["first_name"] + players["last_name"])
     name_counts = normalized_name.value_counts()
@@ -302,29 +299,25 @@ def _validate_players(players):
     if missing_last_name.sum() > 0:
         print(f"{missing_last_name.sum()} players are missing a last name:")
         print(players[missing_last_name][["id", "first_name", "last_name"]])
-        print()
 
     missing_first_name = pd.isnull(players.first_name)
     if missing_first_name.sum() > 0:
         print(f"{missing_first_name.sum()} players are missing a first name:")
         print(players[missing_first_name][["id", "first_name", "last_name"]])
-        print()
 
     missing_grade = pd.isnull(players.grade)
     if missing_grade.sum() > 0:
-        print(f"{missing_grade.sum()} players are missing a grade:")
-        print(players[missing_grade][["id", "first_name", "last_name", "grade"]])
-        print()
+        print(
+            f"{missing_grade.sum()} players are missing a grade: "
+            f"{_get_names(players[missing_grade])}"
+        )
 
     missing_skill = pd.isnull(players.coach_skill) & pd.isnull(players.parent_skill)
     if missing_skill.sum() > 0:
         print(
-            f"{missing_skill.sum()} players don't have a coach or parent skill. We'll automatically"
-            " assign them a skill of 5."
+            f"{missing_skill.sum()} players don't have a coach or parent skill. Automatically "
+            "assigning them a skill of 5"
         )
-        _print_names(players[missing_skill])
-        print()
-
         players.loc[missing_skill, "parent_skill"] = 5
 
     missing_goalie_skill = pd.isnull(players.goalie_skill)
@@ -336,35 +329,67 @@ def _validate_players(players):
         players.loc[missing_goalie_skill, "goalie_skill"] = 6
 
 
+def cross_match_names(df1, df2, suffixes):
+    # dfs are assumed to have name_key columns
+    matched_names = np.intersect1d(df1["name_key"].values, df2["name_key"].values)
+    unmatched_df1 = df1[~df1["name_key"].isin(matched_names)]
+    unmatched_df2 = df2[~df2["name_key"].isin(matched_names)]
+    cross = unmatched_df1.merge(unmatched_df2, how="cross", suffixes=suffixes)
+    keys = [f"name_key{s}" for s in suffixes]
+    cross["score"] = cross.apply(lambda r: fuzz.ratio(r[keys[0]], r[keys[1]]), axis=1)
+    return cross.sort_values(by="score", ascending=False)[[keys[0], keys[1], "score"]]
+
+
 def main():
     args = parser.parse_args()
+    validate_file(args.registration)
     validate_file(args.old_registration)
     validate_file(args.parent_requests)
-    validate_file(args.registration)
-
-    # Pull team and coach score from spring 2022
-    existing_players = _load_existing_player_data(args.old_registration, args.division)
-
-    # Load parent requests
-    parent_reqs = _load_parent_requests(args.parent_requests)
 
     # Load current registrations
     registrations = _load_registration_data(args.registration)
 
+    # Pull team and coach score from spring 2022
+    existing_players = _load_existing_player_data(args.old_registration, args.division)
+    existing_player_match = existing_players["name_key"].isin(registrations["name_key"])
+    lower_division_match = pd.isnull(existing_players["team"]) & existing_player_match
+    print(
+        f"{existing_player_match.sum()} / {len(registrations)} registrations were matched to "
+        f"existing player data. {lower_division_match.sum()} came from a lower division."
+    )
+    cross = cross_match_names(registrations, existing_players, ("_reg", "_old"))
+    print(
+        "If names are spelled differently across forms, they can't be automatically matched. \n"
+        f"Please check the following list of potential name matches (printing top {args.matches}):"
+    )
+    print(cross.head(args.matches))
+    print("Please edit the forms so the names match or manually update the player csv")
+
+    # Load parent requests
+    parent_reqs = _load_parent_requests(args.parent_requests)
+    parent_req_match = registrations["name_key"].isin(parent_reqs["name_key"])
+    print(
+        f"{parent_req_match.sum()} / {len(registrations)} players had matching parent requests"
+    )
+    cross = cross_match_names(registrations, parent_reqs, ("_reg", "_parent"))
+    print(
+        "If names are spelled differently across forms, they can't be automatically matched. \n"
+        f"Please check the following list of potential name matches (printing top {args.matches}):"
+    )
+    print(cross.head(args.matches))
+    print("Please edit the forms so the names match or manually update the player csv")
+
     # Merge the old data into the current registration data.
     players = _merge_data(existing_players, parent_reqs, registrations)
 
-    # Validate the player list
-    _validate_players(players)
+    # Do a final cleaning pass
+    _final_sweep(players)
 
-    print("=====")
-    print(f"Saving to {args.output_file}")
-    players.to_csv(args.output_file, index=False)
-
-    print(
-        "All done! Please load into Excel/Google Sheets and read through any comments making "
-        "adjustments to cells as necessary."
-    )
+    if args.replace or not os.path.exists(args.output_file):
+        print(f"Saving to {args.output_file}")
+        players.to_csv(args.output_file, index=False)
+    else:
+        print(f"Not saving. {args.output_file} already exists. Use -r to replace")
 
 
 if __name__ == "__main__":
