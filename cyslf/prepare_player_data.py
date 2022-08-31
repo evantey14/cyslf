@@ -55,6 +55,14 @@ def _extract_num(column, dtype=float):
     return column.str.extract("(\d+)", expand=False).astype(dtype)  # noqa: W605
 
 
+def _extract_grade(column):
+    """Extract the grade number from columns, setting P to -1 and K to 0"""
+    grade = column.fillna("").astype(str).str[0]
+    grade = grade.str.replace("P", "-1", regex=False)
+    grade = grade.str.replace("K", "0", regex=False)
+    return grade.astype(float)  # Allow missing grade for now
+
+
 def _normalize_str(column):
     """Normalize string by removing non-alpha and lowercasing (partciularly for name matching)."""
     return column.str.lower().str.replace("[^a-zA-Z]", "", regex=True)
@@ -197,8 +205,7 @@ def _load_registration_data(filename):
     registrations = registrations_raw.rename(columns=column_map)[column_map.values()]
 
     # Extract grade
-    # TODO: handle K and PreK grades
-    registrations["grade"] = _extract_num(registrations["grade"])
+    registrations["grade"] = _extract_grade(registrations["grade"])
 
     # Extract parent skill (they have opposite order from coach skill, so invert)
     registrations["parent_skill"] = _extract_num(registrations["parent_skill"])
