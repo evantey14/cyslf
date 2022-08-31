@@ -12,6 +12,8 @@ pandas = "^1.4.3"
 geopy = "^2.2.0"
 tqdm = "^4.64.0"
 numpy = "^1.21.3"
+thefuzz = "^0.19.0"
+python-Levenshtein = "^0.12.2"
 
 [tool.poetry.dev-dependencies]
 pre-commit = "^2.20.0"

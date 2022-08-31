@@ -2,6 +2,7 @@ import argparse
 
 import numpy as np
 import pandas as pd
+from thefuzz import fuzz
 
 from cyslf.utils import DAY_MAP, FIELD_MAP
 from cyslf.validation import request_validation, validate_file
@@ -31,9 +32,15 @@ parser.add_argument(
     type=str,
     help="Parent request form (practice preferences / teammate requests)",
 )
-
 parser.add_argument(
     "--registration", "--reg", type=str, help="Current registration csv."
+)
+parser.add_argument(
+    "---matches",
+    "-m",
+    default=5,
+    type=int,
+    help="Number of potential name matches to display",
 )
 parser.add_argument(
     "--output_file",
@@ -58,7 +65,7 @@ def _get_names(df):
 
 
 def _load_existing_player_data(filename: str, division: str):
-    print(f"===Reading existing player data from {filename}===")
+    print(f"\n===Reading existing player data from {filename}===")
     existing_players_raw = pd.read_csv(filename)
     print(f"{len(existing_players_raw)} players found in previous registration data.")
     # Only keep teams if the players were in the relevant division.
@@ -122,7 +129,7 @@ def _extract_locations(locations_str):
 
 
 def _load_parent_requests(filename):
-    print(f"===Reading parent requests from {filename}===")
+    print(f"\n===Reading parent requests from {filename}===")
     parent_reqs = pd.read_csv(filename)
     print(f"{len(parent_reqs)} parent requests found")
     column_map = {
@@ -170,7 +177,7 @@ def _load_parent_requests(filename):
 
 
 def _load_registration_data(filename):
-    print(f"===Reading registration data from {filename}===")
+    print(f"\n===Reading registration data from {filename}===")
     registrations_raw = pd.read_csv(filename)
 
     # Merge the two school columns
@@ -206,7 +213,7 @@ def _load_registration_data(filename):
 
 
 def _merge_data(existing_players, parent_reqs, registrations):
-    print("===Merging data===")
+    print("\n===Merging data===")
 
     ordered_columns = [
         "id",
@@ -255,8 +262,8 @@ def _merge_data(existing_players, parent_reqs, registrations):
     return players
 
 
-def _validate_players(players):
-    print("===Running verification checks===")
+def _final_sweep(players):
+    print("\n===Running final checks===")
 
     normalized_name = _normalize_str(players["first_name"] + players["last_name"])
     name_counts = normalized_name.value_counts()
@@ -307,6 +314,17 @@ def _validate_players(players):
         players.loc[missing_goalie_skill, "goalie_skill"] = 6
 
 
+def cross_match_names(df1, df2, suffixes):
+    # dfs are assumed to have name_key columns
+    matched_names = np.intersect1d(df1["name_key"].values, df2["name_key"].values)
+    unmatched_df1 = df1[~df1["name_key"].isin(matched_names)]
+    unmatched_df2 = df2[~df2["name_key"].isin(matched_names)]
+    cross = unmatched_df1.merge(unmatched_df2, how="cross", suffixes=suffixes)
+    keys = [f"name_key{s}" for s in suffixes]
+    cross["score"] = cross.apply(lambda r: fuzz.ratio(r[keys[0]], r[keys[1]]), axis=1)
+    return cross.sort_values(by="score", ascending=False)[[keys[0], keys[1], "score"]]
+
+
 def main():
     args = parser.parse_args()
     validate_file(args.registration)
@@ -324,6 +342,13 @@ def main():
         f"{existing_player_match.sum()} / {len(registrations)} registrations were matched to "
         f"existing player data. {lower_division_match.sum()} came from a lower division."
     )
+    cross = cross_match_names(registrations, existing_players, ("_reg", "_old"))
+    print(
+        "If names are spelled differently across forms, they can't be automatically matched. \n"
+        f"Please check the following list of potential name matches (printing top {args.matches}):"
+    )
+    print(cross.head(args.matches))
+    print("Please edit the forms so the names match or manually update the player csv")
 
     # Load parent requests
     parent_reqs = _load_parent_requests(args.parent_requests)
@@ -331,12 +356,19 @@ def main():
     print(
         f"{parent_req_match.sum()} / {len(registrations)} players had matching parent requests"
     )
+    cross = cross_match_names(registrations, parent_reqs, ("_reg", "_parent"))
+    print(
+        "If names are spelled differently across forms, they can't be automatically matched. \n"
+        f"Please check the following list of potential name matches (printing top {args.matches}):"
+    )
+    print(cross.head(args.matches))
+    print("Please edit the forms so the names match or manually update the player csv")
 
     # Merge the old data into the current registration data.
     players = _merge_data(existing_players, parent_reqs, registrations)
 
-    # Validate the player list
-    _validate_players(players)
+    # Do a final cleaning pass
+    _final_sweep(players)
 
     print(f"Saving to {args.output_file}")
     players.to_csv(args.output_file, index=False)
