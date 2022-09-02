@@ -52,6 +52,7 @@ class TeammateScorer:
     """
 
     def __init__(self, players: List["Player"], teams: List["Team"]):
+        # Assumes teams are empty, which is technically how we do it
         self.league_size = len(players)
         self.friend_matches = 0
 
@@ -79,6 +80,7 @@ class TeammateScorer:
             name = f"{p.first_name} {p.last_name}"
             if name in player.teammate_requests and not request_satisfied:
                 self.friend_matches -= 1
+                request_satisfied = True
             if f"{player.first_name} {player.last_name}" in p.teammate_requests:
                 player_is_unique = True
                 for q in team.players:
@@ -91,7 +93,7 @@ class TeammateScorer:
                     self.friend_matches -= 1
 
     def get_score(self) -> float:
-        return self.friend_matches / self.league_size / 2
+        return self.friend_matches / self.league_size
 
 
 # PARITY SCORERS
