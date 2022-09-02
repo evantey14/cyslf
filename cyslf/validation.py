@@ -25,7 +25,11 @@ def validate_player_strs(player: "Player"):
 
 
 def validate_player_ints(player: "Player"):
-    for key in ["grade", "skill", "goalie_skill"]:
+    for key, minimum, maximum in [
+        ("grade", -1, 8),
+        ("skill", 1, 10),
+        ("goalie_skill", 1, 10),
+    ]:
         value = player.__getattribute__(key)
         if not isinstance(value, int) and not isinstance(value, float):
             raise ValueError(
@@ -33,10 +37,11 @@ def validate_player_ints(player: "Player"):
                 f"number but found {key}={value} ({type(value)}) instead. Please correct this in "
                 "the input csv and retry"
             )
-        if value < 1 or value > 10:
+        if value < minimum or value > maximum:
             raise ValueError(
                 f"Failed to create player {player.first_name} {player.last_name}. {key} ({value}) "
-                "is unexpectedly < 1 or > 10. Please correct this in the input csv and retry."
+                f"is unexpectedly < {minimum} or > {maximum}. Please correct this in the input csv "
+                "and retry."
             )
 
 

@@ -117,6 +117,7 @@ class Team:
         return (
             f"Team {self.name:11} "
             f"({self.practice_day} "
+            f"{self.location} "
             f"size={len(self.players)}, "
             f"skill={self.get_skill():.2f}, "
             f"grade={self.get_grade():.2f})"
