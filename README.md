@@ -62,6 +62,7 @@ The standard player csv is expected to have the following columns:
 * `parent_skill`: parent evaluated skill (used when coach evaluation is missing)
 * `goalie_skill`: coach evaluated skill (1 = good, 6 = does not play goalie)
 * `preferred_locations`: preferred practice field names
+* `backup_locations`: practice fields determined automatically based on player's home address
 * `disallowed_locations`: practice fields that the player can't reach
 * `preferred_days`: days player prefers to have practice. must be a string of characters from "MTWRF". For example, "MTR" means the player prefers to practice on Monday, Tuesday, or Thursday.
 * `unavailable_days`: days player is not able to practice. similar format as above.
