@@ -43,23 +43,52 @@ class LocationScorer(CountScorer):
 
 
 class TeammateScorer:
+    """Scorer for up to 1 teammate request
+
+    We check friend requests by simply checking if {first_name} {last_name} is in the request
+    string. We also award at most one friend request per player. This means when adding / removing
+    players, we only want to increment / decrement if that player was uniquely requested by someone
+    else on the team.
+    """
+
     def __init__(self, players: List["Player"], teams: List["Team"]):
         self.league_size = len(players)
         self.friend_matches = 0
 
     def update_score_addition(self, player: "Player", team: "Team"):
+        request_satisfied = False
         for p in team.players:
-            if f"{p.first_name} {p.last_name}" in player.teammate_requests:
+            name = f"{p.first_name} {p.last_name}"
+            if name in player.teammate_requests and not request_satisfied:
                 self.friend_matches += 1
+                request_satisfied = True
             if f"{player.first_name} {player.last_name}" in p.teammate_requests:
-                self.friend_matches += 1
+                player_is_unique = True
+                for q in team.players:
+                    if p == q:
+                        continue
+                    if f"{q.first_name} {q.last_name}" in p.teammate_requests:
+                        player_is_unique = False
+                        break
+                if player_is_unique:
+                    self.friend_matches += 1
 
     def update_score_removal(self, player: "Player", team: "Team"):
+        request_satisfied = False
         for p in team.players:
-            if f"{p.first_name} {p.last_name}" in player.teammate_requests:
+            name = f"{p.first_name} {p.last_name}"
+            if name in player.teammate_requests and not request_satisfied:
                 self.friend_matches -= 1
             if f"{player.first_name} {player.last_name}" in p.teammate_requests:
-                self.friend_matches -= 1
+                player_is_unique = True
+                for q in team.players:
+                    if p == q or player == q:
+                        continue
+                    if f"{q.first_name} {q.last_name}" in p.teammate_requests:
+                        player_is_unique = False
+                        break
+                if player_is_unique:
+                    self.friend_matches -= 1
 
     def get_score(self) -> float:
         return self.friend_matches / self.league_size / 2
