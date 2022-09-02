@@ -1,14 +1,21 @@
 import argparse
+import logging
 import os
 
+from geopy.extra.rate_limiter import RateLimiter
+from geopy.geocoders import Nominatim
 import numpy as np
 import pandas as pd
 from thefuzz import fuzz
+from tqdm import tqdm
 
-from cyslf.utils import DAY_MAP, FIELD_MAP
+from cyslf.utils import DAY_MAP, FIELD_LOCATIONS, FIELD_MAP, get_dist
 from cyslf.validation import request_validation, validate_file
 
 
+geolocator = Nominatim(user_agent="cyslf")
+geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1 / 2)
+tqdm.pandas()
 pd.set_option("display.max_rows", None)
 
 parser = argparse.ArgumentParser(
@@ -77,6 +84,19 @@ def _normalize_str(column):
 
 def _get_names(df):
     return ", ".join(df[["first_name", "last_name"]].agg(" ".join, axis=1))
+
+
+def _lookup_location(address):
+    # If an address is poorly formed, geopy gives sad-looking warnings,
+    # so let's temporarily disable this.
+    logging.getLogger("geopy").setLevel(logging.ERROR)
+    location = geocode(address)
+    logging.getLogger("geopy").setLevel(logging.WARNING)
+    if location:
+        return location.latitude, location.longitude
+    else:
+        print(f"Failed to find address: {address}")
+        return np.nan, np.nan
 
 
 def _load_existing_player_data(filename: str, division: str):
@@ -202,12 +222,26 @@ def _load_registration_data(filename):
         has_other_school
     ]["School Name other:"]
 
+    # Look up player latitude / longitude
+    print("Converting addresses to latitude / longitude")
+    registrations_raw["Postal Code"] = registrations_raw["Postal Code"].astype(str)
+    registrations_raw["Address"] = registrations_raw[
+        ["Street", "City", "Region", "Postal Code"]
+    ].agg(",".join, axis=1)
+    registrations_raw["Location"] = registrations_raw["Address"].progress_apply(
+        _lookup_location
+    )
+    registrations_raw["latitude"] = registrations_raw["Location"].apply(lambda x: x[0])
+    registrations_raw["longitude"] = registrations_raw["Location"].apply(lambda x: x[1])
+
     column_map = {
         "Player Last Name": "last_name",
         "Player First Name": "first_name",
         "Current Grade": "grade",
         "Parental assessment of player ability/athleticism:": "parent_skill",
         "School Name": "school",
+        "longitude": "longitude",
+        "latitude": "latitude",
         "Special Requests": "comment",
     }
     registrations = registrations_raw.rename(columns=column_map)[column_map.values()]
@@ -243,6 +277,7 @@ def _merge_data(existing_players, parent_reqs, registrations):
         "unavailable_days",
         "preferred_locations",
         "disallowed_locations",
+        "backup_locations",
         "teammate_requests",
         "lock",
         "emailed_parents",
@@ -261,6 +296,36 @@ def _merge_data(existing_players, parent_reqs, registrations):
     print(f"{(~missing_team).sum()} players locked onto their teams from last season")
 
     players["emailed_parents"] = False
+
+    # Set backup field preferences based on location
+    # If parents didn't fill out the request form with a location preference, or if the preferred
+    # locations don't provide enough options, we'd like to have a fallback based on home address.
+    # Using geopy, we figure out the 3 closest fields not already covered by the
+    # preferred / disallowed locations and stick those in a column.
+    backup_locations = []
+    for _, row in players.iterrows():
+        lat, long = row[["latitude", "longitude"]]
+        if pd.isnull(lat) or pd.isnull(long):
+            backup_locations.append("")
+            continue
+        field_df = pd.DataFrame.from_dict(
+            FIELD_LOCATIONS, orient="index", columns=["lat", "long"]
+        )
+        # Don't think about fields if they're already in preferred/disallowed locations
+        mask = field_df.index.map(
+            lambda f: f in row.fillna("")["preferred_locations"]
+            or f in row.fillna("")["disallowed_locations"]
+        ).values.astype(bool)
+        field_df = field_df[~mask]
+        if len(field_df) <= 3:
+            backup_locations.append("")
+            continue
+        field_df["distance"] = field_df.apply(
+            lambda r: get_dist(lat, long, r["lat"], r["long"]), axis=1
+        )
+        field_df = field_df.sort_values(by="distance")
+        backup_locations.append(", ".join(field_df.head(3).index.values))
+    players["backup_locations"] = backup_locations
 
     players["comment"] = (
         players["comment"].fillna("") + " || " + players["extra_comment"].fillna("")

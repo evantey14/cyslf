@@ -38,6 +38,7 @@ class Player:
     preferred_days: str
     disallowed_locations: str
     preferred_locations: str
+    backup_locations: str
     teammate_requests: str
     lock: bool
     emailed_parents: bool
@@ -53,6 +54,7 @@ class Player:
             "preferred_days",
             "disallowed_locations",
             "preferred_locations",
+            "backup_locations",
             "teammate_requests",
         ]
         for key in str_keys:
