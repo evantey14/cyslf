@@ -37,9 +37,29 @@ class PracticeDayScorer(CountScorer):
         return team.practice_day in player.preferred_days
 
 
-class LocationScorer(CountScorer):
-    def _count_player(self, player: "Player", team: "Team") -> bool:
-        return team.location in player.preferred_locations
+class LocationScorer:
+    def __init__(self, players: List["Player"], teams: List["Team"]):
+        self.league_size = len(players)
+        self.count = 0.0
+        for t in teams:
+            self.count += sum([self._count_player(p, t) for p in t.players])
+
+    def _count_player(self, player: "Player", team: "Team") -> float:
+        if team.location in player.preferred_locations:
+            return 1
+        elif team.location in player.backup_locations:
+            return 0.5
+        else:
+            return 0
+
+    def update_score_addition(self, player: "Player", team: "Team"):
+        self.count += self._count_player(player, team)
+
+    def update_score_removal(self, player: "Player", team: "Team"):
+        self.count -= self._count_player(player, team)
+
+    def get_score(self) -> float:
+        return self.count / self.league_size
 
 
 class TeammateScorer:

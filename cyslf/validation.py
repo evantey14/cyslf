@@ -91,7 +91,8 @@ def validate_player_locations(player: "Player"):
     # TODO: figure out how to strip strings to make the parsing more forgiving
     disallowed_locations = player.disallowed_locations.split(", ")
     preferred_locations = player.preferred_locations.split(", ")
-    for loc in disallowed_locations + preferred_locations:
+    backup_locations = player.backup_locations.split(", ")
+    for loc in disallowed_locations + preferred_locations + backup_locations:
         if len(loc) > 0 and loc not in valid_locations:
             raise ValueError(
                 f"Failed to create player {player.first_name} {player.last_name} due to invalid "
