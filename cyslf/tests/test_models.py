@@ -16,6 +16,7 @@ example_player = Player(
     preferred_days="MWR",
     disallowed_locations="Danehy",
     preferred_locations="Ahern, Donnelly",
+    backup_locations="Common",
     teammate_requests="Lionel Messi",
     lock=True,
     emailed_parents=True,
