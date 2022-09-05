@@ -38,6 +38,7 @@ parser.add_argument(
     "--parent_requests",
     "--par",
     type=str,
+    default=None,
     help="Parent request form (practice preferences / teammate requests)",
 )
 parser.add_argument(
@@ -409,7 +410,6 @@ def main():
     args = parser.parse_args()
     validate_file(args.registration)
     validate_file(args.old_registration)
-    validate_file(args.parent_requests)
 
     # Load current registrations
     registrations = _load_registration_data(args.registration)
@@ -431,18 +431,34 @@ def main():
     print("Please edit the forms so the names match or manually update the player csv")
 
     # Load parent requests
-    parent_reqs = _load_parent_requests(args.parent_requests)
-    parent_req_match = registrations["name_key"].isin(parent_reqs["name_key"])
-    print(
-        f"{parent_req_match.sum()} / {len(registrations)} players had matching parent requests"
-    )
-    cross = cross_match_names(registrations, parent_reqs, ("_reg", "_parent"))
-    print(
-        "If names are spelled differently across forms, they can't be automatically matched. \n"
-        f"Please check the following list of potential name matches (printing top {args.matches}):"
-    )
-    print(cross.head(args.matches))
-    print("Please edit the forms so the names match or manually update the player csv")
+    if args.parent_requests is not None:
+        parent_reqs = _load_parent_requests(args.parent_requests)
+        parent_req_match = registrations["name_key"].isin(parent_reqs["name_key"])
+        print(
+            f"{parent_req_match.sum()} / {len(registrations)} players had matching parent requests"
+        )
+        cross = cross_match_names(registrations, parent_reqs, ("_reg", "_parent"))
+        print(
+            "If names are spelled differently across forms, they can't be automatically matched. \n"
+            "Please check the following list of potential name matches (printing top "
+            f"{args.matches}):"
+        )
+        print(cross.head(args.matches))
+        print(
+            "Please edit the forms so the names match or manually update the player csv"
+        )
+    else:
+        parent_reqs = pd.DataFrame(
+            columns=[
+                "name_key",
+                "disallowed_locations",
+                "preferred_locations",
+                "preferred_days",
+                "unavailable_days",
+                "extra_comment",
+                "teammate_requests",
+            ]
+        )
 
     # Merge the old data into the current registration data.
     players = _merge_data(existing_players, parent_reqs, registrations)
