@@ -9,9 +9,32 @@ Returning players are placed on their last season's team by default, then the re
 # Quickstart
 #### 0. Install [Python](https://www.python.org/downloads/) and open command prompt to run the following lines. (For Windows, try installing [Miniconda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/windows.html) and using anaconda prompt instead.)
 #### 1. Install `cyslf` by running `pip install cyslf`
-#### 2. Prepare a standard player csv from registration data. Example:
+#### 2. Convert addresses to coordinates. Example:
+
 ```
-prepare-player-data --div "Boys Grades 3-4" --old_reg  old-registrations.csv --reg registrations.csv --par parent-requests.csv -o example-players.csv
+
+  convert-addresses --reg registrations.csv
+
+  OR
+
+  convert-addresses --folder ./girls5-6_data
+
+```
+
+* This command adds longitude and latitude columns to the registration csv containing the coordinates of the corresponding player's address. This step was originally part of the next step, but is now seperated out because the process of looking up addresses took the program a while. 
+* The program may fail to find coordinates for some addresses, which is fine. This tends to happen when an address is mispelled somehow. In this case you can either fix the spelling in the registration file or fill in the latitude and longitude manually using Google Maps. 
+* `--reg` sets the current registration csv. This should contain the player's address information seperated into columns `Street`, `City`, `Region`, and `Postal Code`. This should only contain players in one division, i.e. Boys Grades 3-4.
+* `--folder` or `-f` can be used instead of `--reg` to provide the registration file. It sets the folder the registration file must exist in, and the file must be names `registration.csv`.
+
+#### 3. Prepare a standard player csv from registration data. Example:
+
+```
+prepare-player-data --div "Boys Grades 3-4" --coach_evals coach-evaluations.csv --reg registrations.csv --par parent-requests.csv -o example-players.csv
+
+OR
+
+prepare-player-data --div "Girls Grades 7-8" --folder ./girls7-8_data -o prepared-player-data.csv
+
 ```
 * This command takes raw form data and converts it into the standard player csv format (see example data below). It does a handful of things to clean up the data.
     * Players on teams from the prior season will be placed on those teams by default.
@@ -24,17 +47,22 @@ prepare-player-data --div "Boys Grades 3-4" --old_reg  old-registrations.csv --r
     * If you do edit cells, make sure the formatting is consistent. `Danehy` is not the same as
       `danehy`.
 * `--div` sets the division. If your input is found in the "Division" column of the old registration data, that player is considered to be a continuing player in the division. You don't need to put the full division name. `"Boys Grades 3-4"` is good enough to match to `"Boys Grades 3-4 - Spring 2022 In-Town Soccer"` but you do need to be careful about spelling / upper case / lower case.
-* `--old_reg`  sets the past data csv. This needs to have names, coach evaluations, and teams for each player.
+* `--coach_evals` sets the coach evaluations csv. This needs to have names, coach evaluations, and past teams for each player.
 * `--par` sets the parent request csv. This should have practice location / day / teammate preferences.
-* `--reg` sets the current registration csv. This should have all other player-relevant data.
+* `--reg` sets the current registration csv. This should have all other player-relevant data. This should only contain players in one division, i.e. Boys Grades 3-4.
 * `-m` sets the number of potential name matches to print. Default is `-m 5`.
 * `-o` sets the output file.
 * `-r` lets you replace the output file if it exists.
-#### 3. Prepare a standard team csv
+* `--folder`or `-f` can be used to replace `--coach_evals`, `--par`, and `--reg` by providing a directory that contains these three files. The names of the files must be `coach_evals.csv`, `parent_requests.csv`, and `registration.csv` (keep in mind parent requests is optional). Make sure the file names exactly match these names. Will atuomatically output a file names `prepared_player_data.csv`.
+#### 4. Prepare a standard team csv
 * These should have team name, practice day, and practice location (see example data below)
-#### 4. Make teams! Example:
+#### 5. Make teams! Example:
 ```
 make-teams -i example-players.csv -t example-team.csv -o example-result.csv
+
+OR
+
+make-teams -f ./boys3-4_data -r
 ```
 * This command reads the player and team csvs, assigns available players, and outputs the results as standard player and team csvs.
 * `-i` sets the input player file.
@@ -44,13 +72,14 @@ make-teams -i example-players.csv -t example-team.csv -o example-result.csv
 * `-d` can optionally be used to set the search depth. This is how hard the algorithm tries to
   rearrange players. 4 or 5 will probably take too long to run, 2 or 3 are probably good enough.
 * `-r` can be used to replace the output file when it already exists.
-#### 5. Review!
+* `-f` can be used similarly to  `--folder` in the prepare player data step. Rather than providing files with `-i`, `-t`, `-o`, and `-c`, only provide the directory containing each of these files. The files must be named `prepared_player_data.csv`, `teams.csv`, and `final_results.csv` (which is automatically created if it doesn't already exist). You may also include a `weights.txt` file as the `-c` option. See the example for details on formatting.
+#### 6. Review!
 * Load the player csv and see if any adjustments need to be made.
 * If you want to re-run league formation, unfreeze players and remove their team values, download and run step 4 again.
 
 # Example Data
 The `make-teams` command reads files in the standard format and outputs files in the standard format. This means you should be able to open these in google sheets / excel and move players around easily.
-See [this google sheets example](https://docs.google.com/spreadsheets/d/1jplZgVjpE15p7ttRaTPetmnemrGZ8TJ_etgD3tVFBwU/edit#gid=1433571872).
+See [this google sheets example](TODO).
 ### Standard player csv
 The standard player csv is expected to have the following columns:
 * `id`: a unique player ID number
@@ -67,7 +96,7 @@ The standard player csv is expected to have the following columns:
 * `preferred_days`: days player prefers to have practice. must be a string of characters from "MTWRF". For example, "MTR" means the player prefers to practice on Monday, Tuesday, or Thursday.
 * `unavailable_days`: days player is not able to practice. similar format as above.
 * `teammate_requests`: teammate names
-* `frozen`: `TRUE` or `FALSE`.
+* `lock`: `TRUE` or `FALSE`. If a player is locked and already assigned to a compatible team before make_teams is called, they'll remain on that team. If they're unlocked (`lock` == `FALSE`) or the team they're assigned to isn't compatible (i.e. incompatible practice day/location) then they'll be assigned a new team.
 * `school`: school name
 * `comment`: special requests from the registration form
 ### Standard team csv
@@ -87,6 +116,7 @@ Maher
 Pacific
 Raymond
 Russell
+Sennot
 ```
 
 # Algorithm
@@ -98,7 +128,7 @@ More optimal algorithms exist, but this algorithm is one of the most straightfor
 
 
 # Scoring
-The score of a particular arrangement of players is composed of a bunch of independent scores. The independent scores are combined with a weighted sum. These weights can be controlled by passing a config file to `make-teams` (eg `make-teams -c weights.cfg ...`). Example weights file (put in `weights.cfg`):
+The score of a particular arrangement of players is composed of a bunch of independent scores. The independent scores are combined with a weighted sum. These weights can be controlled by passing a config file to `make-teams` (eg `make-teams -c weights.txt ...`). Example weights file (put in `weights.txt`):
 ```
 [weights]
 skill = 1           # balance average team skill

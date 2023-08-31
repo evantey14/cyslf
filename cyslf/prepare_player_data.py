@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from thefuzz import fuzz
 from tqdm import tqdm
+from cyslf.utils import handle_error
 
 from cyslf.utils import DAY_MAP, FIELD_LOCATIONS, FIELD_MAP, get_dist
 from cyslf.validation import request_validation, validate_file
@@ -21,6 +22,7 @@ pd.set_option("display.max_rows", None)
 parser = argparse.ArgumentParser(
     description="Process raw registration forms into a standard csv."
 )
+
 parser.add_argument(
     "--division",
     "--div",
@@ -28,12 +30,23 @@ parser.add_argument(
     type=str,
     help="division without season (e.g. 'Boys Grades 3-4'). Spelling needs to match form data.",
 )
+
 parser.add_argument(
-    "--old_registration",
-    "--old_reg",
+    "--folder",
+    "-f",
     type=str,
+    help="Folder containing coach evaluations, parent requests, and registrations",
+    default=None,
+)
+
+parser.add_argument(
+    "--coach_evals",
+    "-ce",
+    type=str,
+    default=None,
     help="Old registration csv. Where to pull coach evals + past teams from.",
 )
+
 parser.add_argument(
     "--parent_requests",
     "--par",
@@ -41,9 +54,11 @@ parser.add_argument(
     default=None,
     help="Parent request form (practice preferences / teammate requests)",
 )
+
 parser.add_argument(
-    "--registration", "--reg", type=str, help="Current registration csv."
+    "--registration", "--reg", type=str, help="Current registration csv.", default=None
 )
+
 parser.add_argument(
     "---matches",
     "-m",
@@ -51,12 +66,14 @@ parser.add_argument(
     type=int,
     help="Number of potential name matches to display",
 )
+
 parser.add_argument(
     "--output_file",
     "-o",
     type=str,
     help="output csv file. eg 'b34-players.csv'",
 )
+
 parser.add_argument(
     "--replace",
     "-r",
@@ -87,19 +104,7 @@ def _get_names(df):
     return ", ".join(df[["first_name", "last_name"]].agg(" ".join, axis=1))
 
 
-def _lookup_location(address):
-    # If an address is poorly formed, geopy gives sad-looking warnings,
-    # so let's temporarily disable this.
-    logging.getLogger("geopy").setLevel(logging.ERROR)
-    location = geocode(address)
-    logging.getLogger("geopy").setLevel(logging.WARNING)
-    if location:
-        return location.latitude, location.longitude
-    else:
-        print(f"Failed to find address: {address}")
-        return np.nan, np.nan
-
-
+# read coach eval file
 def _load_existing_player_data(filename: str, division: str):
     print(f"\n===Reading existing player data from {filename}===")
     existing_players_raw = pd.read_csv(filename)
@@ -107,27 +112,29 @@ def _load_existing_player_data(filename: str, division: str):
     # Only keep teams if the players were in the relevant division.
     # This is because a Spring 2nd-grader on Red shouldn't stay on Red, but
     # we do want to know their skill score.
-    in_division = existing_players_raw["Division"].str.contains(division)
+    in_division = existing_players_raw["division"].str.contains(division)
     print(f"{in_division.sum()} were found in division: {division}")
     if in_division.sum() == 0:
         request_validation(
             "WARNING: Please confirm that the division is spelled correctly before proceeding"
         )
-    existing_players_raw.loc[~in_division, "Assigned Team"] = np.nan
+    existing_players_raw.loc[~in_division, "team"] = np.nan
 
+    # changed to match coach evals
     column_map = {
-        "Player rating - Effectiveness": "coach_skill",
-        "Player rating - Goalie": "goalie_skill",
-        "Lastname": "last_name",
-        "Firstname": "first_name",
-        "Assigned Team": "team",
+        "rating_overall (1 is high)": "coach_skill",
+        "rating_goalie": "goalie_skill",
+        "lastname": "last_name",
+        "firstname": "first_name",
+        "team": "team",
     }
+    for key, _ in column_map.items():
+        if key not in existing_players_raw.columns:
+            handle_error(f"Coach evals file is missing the \"{key}\" column.", True)
     existing_players = existing_players_raw.rename(columns=column_map)[
         column_map.values()
     ]
 
-    # Extract coach skill
-    existing_players["coach_skill"] = _extract_num(existing_players["coach_skill"])
     # Players not already in the current division are coming from a younger division. Since they're
     # younger, we'll make their skill one point worse. In the future, maybe we can pick a more
     # principled offset
@@ -135,9 +142,6 @@ def _load_existing_player_data(filename: str, division: str):
         "Lowering player skill by 1 for players that weren't previously in this division"
     )
     existing_players.loc[~in_division, "coach_skill"] += 1
-
-    # Extract goalie skill
-    existing_players["goalie_skill"] = _extract_num(existing_players["goalie_skill"])
 
     # Construct name for matching to current registration
     full_name = existing_players["first_name"] + existing_players["last_name"]
@@ -152,88 +156,119 @@ def _load_existing_player_data(filename: str, division: str):
 
     return existing_players
 
+def _translate_practice_days(row, match1):
+    ans = [day for day in DAY_MAP.values() if row[day] == match1]
+    return "".join(ans)
 
-def _extract_locations(locations_str):
-    field_set = set()
-    if pd.isnull(locations_str):
-        return ""
-    for region, fields in FIELD_MAP.items():
-        # TODO: Ensure users can't type plaintext into locations_str
-        if region in locations_str:
-            field_set.update(fields)
-    return ", ".join(list(field_set))
+def _translate_locations(row, match):
+    # TODO: optimize
+    ans = ""
+    if row["east"] == match:
+        for location in FIELD_MAP["East"]:
+            ans += location + ", "
+    if row["central"] == match:
+        for location in FIELD_MAP["Central"]:
+            ans += location + ", "
+    if row["cambridgeport"] == match:
+        for location in FIELD_MAP["Cambridgeport"]:
+            ans += location + ", "
+    if row["west"] == match:
+        for location in FIELD_MAP["West"]:
+            ans += location + ", "
+    if row["north"] == match:
+        for location in FIELD_MAP["North"]:
+            ans += location + ", "
+    if len(ans) > 0: ans = ans[:-2]
+    return ans
 
 
 def _load_parent_requests(filename):
     print(f"\n===Reading parent requests from {filename}===")
     parent_reqs = pd.read_csv(filename)
     print(f"{len(parent_reqs)} parent requests found")
+
     column_map = {
-        "Player First Name": "first_name",
+        "Player First Name (as it is written in your CYS/Sports Connect account)": "first_name",
         "Player Last Name": "last_name",
-        "Preferred practice day(s)": "preferred_days",
-        "Unavailable practice day(s)": "unavailable_days",
-        "Preferred Practice Location(s)": "preferred_locations",
-        "Disallowed Practice Location(s)": "disallowed_locations",
-        "Teammate Request 1": "teammate_req1",
-        "Teammate Request 2": "teammate_req2",
+        "Preferred practice day(s) [Monday]": "M",
+        "Preferred practice day(s) [Tuesday]": "T",
+        "Preferred practice day(s) [Wednesday]": "W", 
+        "Preferred practice day(s) [Thursday]": "R",
+        "Preferred practice day(s) [Friday]": "F",
+        "Practice Location(s) [East]": "east",
+        "Practice Location(s) [Central]": "central",
+        "Practice Location(s) [Cambridgeport]": "cambridgeport",
+        "Practice Location(s) [West]": "west",
+        "Practice Location(s) [North]": "north",
+        "Teammate Request 1 First Name": "teammate_req1_firstname",
+        "Teammate Request 1 Last Name": "teammate_req1_lastname",
+        "Teammate Request 2 First Name": "teammate_req2_firstname",
+        "Teammate Request 2 Last Name": "teammate_req2_lastname",
+        "Teammate Request 3 First Name": "teammate_req3_firstname",
+        "Teammate Request 3 Last Name": "teammate_req3_lastname",
         "I am willing to ": "extra_comment",
     }
+
+    # Account for missing columns
+
+    if "Player First Name (as it is written in your CYS/Sports Connect account)" not in parent_reqs.columns:
+        handle_error("Missing first name column in parent requests file. Make sure the column name matches the docs.", True)
+        
+    if "Player Last Name" not in parent_reqs.columns:
+        handle_error("Missing last name column in parent requests file. Make sure the column name matches the docs.", True)
+        
+    for key, val in column_map.items():
+        if key not in parent_reqs.columns:
+            print(f"Parent request file is missing column {key}. An empty column was added.")
+            parent_reqs[val] = ''
+
     parent_reqs = parent_reqs.rename(columns=column_map)[column_map.values()]
 
     parent_reqs["name_key"] = _normalize_str(
         parent_reqs["first_name"] + parent_reqs["last_name"]
     )
-    parent_reqs["preferred_days"] = (
-        parent_reqs["preferred_days"]
-        .replace(DAY_MAP, regex=True)
-        .replace(", ", "", regex=True)
-    )
-    parent_reqs["unavailable_days"] = (
-        parent_reqs["unavailable_days"]
-        .replace(DAY_MAP, regex=True)
-        .replace(", ", "", regex=True)
-    )
-    parent_reqs["teammate_requests"] = (
-        parent_reqs["teammate_req1"] + ", " + parent_reqs["teammate_req2"]
-    )
+    
+    parent_reqs["preferred_days"] = parent_reqs.apply(lambda row: _translate_practice_days(row, "Ideal"), axis=1)
+    
+    parent_reqs["unavailable_days"] = parent_reqs.apply(lambda row: _translate_practice_days(row, "Impossible"), axis=1) 
 
-    parent_reqs["preferred_locations"] = parent_reqs["preferred_locations"].apply(
-        _extract_locations
-    )
-    parent_reqs["disallowed_locations"] = parent_reqs["disallowed_locations"].apply(
-        _extract_locations
-    )
+
+    # concat all teammate request names for easy search 
+    parent_reqs["teammate_requests"] = (parent_reqs["teammate_req1_firstname"].fillna('') + " " +  
+                                        parent_reqs["teammate_req1_lastname"].fillna('') + ", " + 
+                                        parent_reqs["teammate_req2_firstname"].fillna('') + " " + 
+                                        parent_reqs["teammate_req2_lastname"].fillna('') + ", " + 
+                                        parent_reqs["teammate_req3_firstname"].fillna('') + " " + 
+                                        parent_reqs["teammate_req3_lastname"].fillna(''))
+
+    parent_reqs["preferred_locations"] =  parent_reqs.apply(lambda row: _translate_locations(row, "Ideal"), axis=1)
+
+    parent_reqs["disallowed_locations"]  = parent_reqs.apply(lambda row: _translate_locations(row, "Impossible"), axis=1) 
+
 
     parent_reqs = parent_reqs.drop(
-        columns=["first_name", "last_name", "teammate_req1", "teammate_req2"]
+        columns=["first_name", "last_name", "teammate_req1_firstname", "teammate_req1_lastname", "teammate_req2_firstname", "teammate_req2_lastname", "M", "T", "W", "R", "F"]
     )
 
     # Keep most recent entry
     return parent_reqs.drop_duplicates("name_key", keep="last")
 
 
+# no change
 def _load_registration_data(filename):
     print(f"\n===Reading registration data from {filename}===")
     registrations_raw = pd.read_csv(filename)
 
+    if "latitude" not in registrations_raw.columns or "longitude" not in registrations_raw.columns:
+        handle_error("Please use the convert addresses command before preparing player data. See documentation for more details.", True)
+        
+    
     # Merge the two school columns
     has_other_school = ~pd.isnull(registrations_raw["School Name other:"])
     registrations_raw.loc[has_other_school, "School Name"] = registrations_raw[
         has_other_school
     ]["School Name other:"]
 
-    # Look up player latitude / longitude
-    print("Converting addresses to latitude / longitude")
-    registrations_raw["Postal Code"] = registrations_raw["Postal Code"].astype(str)
-    registrations_raw["Address"] = registrations_raw[
-        ["Street", "City", "Region", "Postal Code"]
-    ].agg(",".join, axis=1)
-    registrations_raw["Location"] = registrations_raw["Address"].progress_apply(
-        _lookup_location
-    )
-    registrations_raw["latitude"] = registrations_raw["Location"].apply(lambda x: x[0])
-    registrations_raw["longitude"] = registrations_raw["Location"].apply(lambda x: x[1])
 
     column_map = {
         "Player Last Name": "last_name",
@@ -243,8 +278,12 @@ def _load_registration_data(filename):
         "School Name": "school",
         "longitude": "longitude",
         "latitude": "latitude",
-        "Special Requests": "comment",
     }
+    for key, _ in column_map.items():
+        if key not in registrations_raw.columns:
+            handle_error(f"Registration file doesn't contain the \"{key}\" column.", True)
+            
+    
     registrations = registrations_raw.rename(columns=column_map)[column_map.values()]
 
     # Extract grade
@@ -253,6 +292,11 @@ def _load_registration_data(filename):
     # Extract parent skill (they have opposite order from coach skill, so invert)
     registrations["parent_skill"] = _extract_num(registrations["parent_skill"])
     registrations["parent_skill"] = 11 - registrations["parent_skill"]
+
+    # deal with kickstart players being rated 0
+    registrations["parent_skill"] = registrations["parent_skill"].replace(11, 5)
+
+
 
     # Construct name for matching to current registration.
     full_name = registrations["first_name"] + registrations["last_name"]
@@ -291,10 +335,10 @@ def _merge_data(existing_players, parent_reqs, registrations):
     players["id"] = players.index.values
 
     # Lock players to a team if they already have one
-    players["lock"] = True
-    missing_team = pd.isnull(players.team)
-    players.loc[missing_team, "lock"] = False
-    print(f"{(~missing_team).sum()} players locked onto their teams from last season")
+    players["lock"] = False
+    # missing_team = pd.isnull(players.team)
+    # players.loc[missing_team, "lock"] = False
+    # print(f"{(~missing_team).sum()} players locked onto their teams from last season")
 
     players["emailed_parents"] = False
 
@@ -329,7 +373,8 @@ def _merge_data(existing_players, parent_reqs, registrations):
     players["backup_locations"] = backup_locations
 
     players["comment"] = (
-        players["comment"].fillna("") + " || " + players["extra_comment"].fillna("")
+        # players["comment"].fillna("") + " || " + players["extra_comment"].fillna("")
+        players["extra_comment"].fillna("")
     )
 
     # Fill missing columns with nans
@@ -397,25 +442,65 @@ def _final_sweep(players):
 
 def cross_match_names(df1, df2, suffixes):
     # dfs are assumed to have name_key columns
+
     matched_names = np.intersect1d(df1["name_key"].values, df2["name_key"].values)
     unmatched_df1 = df1[~df1["name_key"].isin(matched_names)]
     unmatched_df2 = df2[~df2["name_key"].isin(matched_names)]
     cross = unmatched_df1.merge(unmatched_df2, how="cross", suffixes=suffixes)
     keys = [f"name_key{s}" for s in suffixes]
+    if cross.shape[0] == 0: return cross
     cross["score"] = cross.apply(lambda r: fuzz.ratio(r[keys[0]], r[keys[1]]), axis=1)
     return cross.sort_values(by="score", ascending=False)[[keys[0], keys[1], "score"]]
 
 
 def main():
     args = parser.parse_args()
-    validate_file(args.registration)
-    validate_file(args.old_registration)
+    
+    #TODO: make argument validating logic simpler/more seamless
+
+    if not args.division:
+        handle_error("No division provided.", True)
+    
+    if not args.registration: 
+        if args.folder: 
+            args.registration = args.folder + "/registration.csv"
+        else: 
+            handle_error("Please provide a registration file.", True)
+
+    if not args.coach_evals: 
+        if args.folder:
+            args.coach_evals = args.folder + "/coach_evals.csv"
+        else:
+            raise handle_error("Please provide a coach evaluations file.", True)
+        
+    if not args.output_file: 
+        if args.folder:
+            args.output_file = args.folder + "/prepared_player_data.csv"
+        else:
+            handle_error("Please provide a valid output file path.", True)
+        
+    if not args.parent_requests and args.folder: 
+        args.parent_requests = args.folder + "/parent_requests.csv" 
+    
+    try: 
+        validate_file(args.registration)
+    except:
+        handle_error(f"Invalid registration file path {args.registration}.", True)
+    try:   
+        validate_file(args.coach_evals)
+    except:
+        handle_error(f"Invalid coach evaluations file path {args.coach_evals}.", True)
+
+    try: 
+        validate_file(args.parent_requests)
+    except:
+        args.parent_requests = None
 
     # Load current registrations
     registrations = _load_registration_data(args.registration)
 
     # Pull team and coach score from spring 2022
-    existing_players = _load_existing_player_data(args.old_registration, args.division)
+    existing_players = _load_existing_player_data(args.coach_evals, args.division)
     existing_player_match = existing_players["name_key"].isin(registrations["name_key"])
     lower_division_match = pd.isnull(existing_players["team"]) & existing_player_match
     print(
@@ -432,6 +517,7 @@ def main():
 
     # Load parent requests
     if args.parent_requests is not None:
+        print("Parent requests found")
         parent_reqs = _load_parent_requests(args.parent_requests)
         parent_req_match = registrations["name_key"].isin(parent_reqs["name_key"])
         print(
@@ -448,6 +534,7 @@ def main():
             "Please edit the forms so the names match or manually update the player csv"
         )
     else:
+        print("No parent requests provided.")
         parent_reqs = pd.DataFrame(
             columns=[
                 "name_key",
@@ -466,11 +553,13 @@ def main():
     # Do a final cleaning pass
     _final_sweep(players)
 
+    if not args.output_file and args.folder: args.output_file = args.folder + "/prepared_player_data.csv"
+
     if args.replace or not os.path.exists(args.output_file):
         print(f"Saving to {args.output_file}")
         players.to_csv(args.output_file, index=False)
     else:
-        print(f"Not saving. {args.output_file} already exists. Use -r to replace")
+        handle_error(f"Not saving. {args.output_file} already exists. Use -r to replace", True)
 
 
 if __name__ == "__main__":

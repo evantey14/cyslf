@@ -1,3 +1,5 @@
+import sys
+
 # Skill rating divisions
 FIRST_ROUND_SKILL = 1
 TOP_TIER_SKILLS = [2, 3]
@@ -12,12 +14,15 @@ DAY_MAP = {
     "Friday": "F",
 }
 
+
 FIELD_MAP = {
     "East": ["Ahern", "Donnelly"],
+    "West": ["Maher"],
+    "Northwest": ["Danehy", "Raymond"],
+    "North": ["Russell"],
     "Central": ["Common", "Sacramento"],
     "Cambridgeport": ["Pacific", "Magazine"],
-    "West": ["Danehy", "Raymond", "Maher"],
-    "North": ["Danehy", "Raymond", "Russell"],
+    "Central East": ["Sennot"]
 }
 
 
@@ -38,7 +43,14 @@ FIELD_LOCATIONS = {
     "Maher": (42.38962880908857, -71.14937874050884),
     "Sacramento": (42.38317187834224, -71.11773101380282),
     "Russell": (42.39644583460877, -71.13739422914362),
+    "Sennot": (42.36863082567946, -71.09990658759837)
 }
+
+def handle_error(message, exit):
+    print(f"\033[1m")
+    if exit: print(f"ERROR: ")
+    print(f"{message}\033[0m\n")
+    if exit: sys.exit()
 
 # Threshold below which a player counts as a goalie
 GOALIE_THRESHOLD = 3
