@@ -1,8 +1,11 @@
 [tool.poetry]
 name = "cyslf"
-version = "0.2.5"
+version = "0.2.9"
 description = "CYS League Formation"
-authors = ["Evan Tey <evantey14@gmail.com>"]
+authors = [
+    "Evan Tey <evantey14@gmail.com>",
+    "Yau-Meng Wong <yw3809@columbia.edu>",
+]
 license = "MIT"
 exclude = ["cyslf/tests"]
 
@@ -24,6 +27,7 @@ line-profiler = "^3.5.1"
 [tool.poetry.scripts]
 prepare-player-data = "cyslf.prepare_player_data:main"
 make-teams = "cyslf.make_teams:main"
+convert-addresses = "cyslf.convert_addresses:main"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

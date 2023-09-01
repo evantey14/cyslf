@@ -1,6 +1,6 @@
 from dataclasses import asdict, dataclass, field
 from typing import List, Optional, Set
-from utils import handle_error
+from cyslf.utils import handle_error
 import pandas as pd
 
 from .constraints import breaks_practice_constraint
