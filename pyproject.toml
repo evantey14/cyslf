@@ -28,6 +28,7 @@ line-profiler = "^3.5.1"
 prepare-player-data = "cyslf.prepare_player_data:main"
 make-teams = "cyslf.make_teams:main"
 convert-addresses = "cyslf.convert_addresses:main"
+cyslf = "cyslf.cyslf:main"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
