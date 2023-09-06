@@ -227,13 +227,13 @@ class League:
         player_info = pd.read_csv(player_csv)
         team_info = pd.read_csv(team_csv)
         teams = {}
-        for i, row in team_info.iterrows():
+        for _, row in team_info.iterrows():
             teams[row["name"]] = Team(**row.to_dict())
 
         # Add all players as available to start
         players = []
         assigned_team_names = []
-        for i, row in player_info.iterrows():
+        for _, row in player_info.iterrows():
             player_dict = row.to_dict()
             team_name = player_dict.pop("team", None)
             player = Player.from_raw_dict(player_dict)
@@ -245,51 +245,28 @@ class League:
         # Now go and move them to their teams
         for player, team_name in zip(players, assigned_team_names):
             if not pd.isnull(team_name):
-                if team_name not in teams:
-                    if player.lock:
-                        raise ValueError(
-                            f"\033[1m"
-                            f"Failed to add {player.first_name} {player.last_name} to Team "
-                            f"{team_name}. This team was not found among the valid teams provided: "
-                            f"{list(teams.keys())} and this player is locked. Please check your spelling, correct this in the "
-                            "csv, or unlock this player and retry.\n"
-                            f"\033[0m"
-                        )
-                    
-                    print(
-                        f"Failed to add {player.first_name} {player.last_name} to Team "
-                        f"{team_name}. This team was not found in the team information: "
-                        f"{list(teams.keys())}. This player is not locked, so will be assigned to a valid team"
-                        "csv and retry.\n"
+                if team_name not in teams:                    
+                    handle_error(
+                        f"Failed to add {'' if player.lock else 'un'} player {player.first_name} {player.last_name} to Team "
+                        f"{team_name}. They will be assigned to a valid team.", False
                     )
                     continue
                 
                 move = Move(player=player, team_from=None, team_to=teams[team_name])
                 if breaks_practice_constraint(move):
-                    if player.lock:
-                        raise ValueError(
-                            f"\033[1m"
-                            f"Failed to add {player.first_name} {player.last_name} to Team "
-                            f"{team_name}.\nThis player's practice info is incompatible with the team's "
-                            f"practice info and the player is locked:\nPlayer's unavailable days: {player.unavailable_days}\n"
-                            f"Player's disallowed locations: {player.disallowed_locations}\n"
-                            f"Team info: {teams[team_name].name} practices at {teams[team_name].location} on {teams[team_name].practice_day}"
-                            f"\nEither try unlocking the player or checking the practice "
-                            "day and location before correcting this in the input csv and retrying. "
-                            f"\033[0m"
-                        )
-                    print(
-                        f"Failed to add {player.first_name} {player.last_name} to Team "
-                        f"{team_name}.\nThis player's practice info is incompatible with the team's.\n"
-                        f"This player is not locked, so will be assigned to a valid team\n"
+                    handle_error(
+                        f"Failed to add {'' if player.lock else 'un'}locked player {player.first_name} {player.last_name} to Team "
+                        f"{team_name}.\nThis player's practice info is incompatible with the team's. "
+                        f"They will be assigned to a valid team", False
                     )
                     continue
+
                 league.apply_moves([move])
 
             else:
                 if player.lock:
                     handle_error(
-                        f"Player {player.first_name} {player.last_name} is locked but not assigned to a team. They will be assigned to a new team.\n"
+                        f"Player {player.first_name} {player.last_name} is locked but not assigned to a team. They will be assigned to a new team."
                         , False 
                     )
                     
