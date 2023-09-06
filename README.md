@@ -116,7 +116,7 @@ Maher
 Pacific
 Raymond
 Russell
-Sennot
+Sennott
 ```
 
 # Algorithm
