@@ -22,7 +22,7 @@ FIELD_MAP = {
     "North": ["Russell"],
     "Central": ["Common", "Sacramento"],
     "Cambridgeport": ["Pacific", "Magazine"],
-    "Central East": ["Sennot"]
+    "Central East": ["Sennott"]
 }
 
 
@@ -43,7 +43,7 @@ FIELD_LOCATIONS = {
     "Maher": (42.38962880908857, -71.14937874050884),
     "Sacramento": (42.38317187834224, -71.11773101380282),
     "Russell": (42.39644583460877, -71.13739422914362),
-    "Sennot": (42.36863082567946, -71.09990658759837)
+    "Sennott": (42.36863082567946, -71.09990658759837)
 }
 
 def handle_error(message, exit):
