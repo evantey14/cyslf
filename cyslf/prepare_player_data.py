@@ -163,21 +163,10 @@ def _translate_practice_days(row, match1):
 def _translate_locations(row, match):
     # TODO: optimize
     ans = ""
-    if row["east"] == match:
-        for location in FIELD_MAP["East"]:
-            ans += location + ", "
-    if row["central"] == match:
-        for location in FIELD_MAP["Central"]:
-            ans += location + ", "
-    if row["cambridgeport"] == match:
-        for location in FIELD_MAP["Cambridgeport"]:
-            ans += location + ", "
-    if row["west"] == match:
-        for location in FIELD_MAP["West"]:
-            ans += location + ", "
-    if row["north"] == match:
-        for location in FIELD_MAP["North"]:
-            ans += location + ", "
+    for location in FIELD_MAP:
+        if row[location.lower()] == match:
+            for field in FIELD_MAP[location]:
+                ans += field + ", "
     if len(ans) > 0: ans = ans[:-2]
     return ans
 
@@ -200,6 +189,8 @@ def _load_parent_requests(filename):
         "Practice Location(s) [Cambridgeport]": "cambridgeport",
         "Practice Location(s) [West]": "west",
         "Practice Location(s) [North]": "north",
+        "Practice Location(s) [Northwest]": "northwest",
+        "Practice Location(s) [Central East]": "central east",
         "Teammate Request 1 First Name": "teammate_req1_firstname",
         "Teammate Request 1 Last Name": "teammate_req1_lastname",
         "Teammate Request 2 First Name": "teammate_req2_firstname",
